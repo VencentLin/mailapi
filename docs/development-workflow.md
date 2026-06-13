@@ -2,6 +2,8 @@
 
 This project uses lightweight version control with clear commits. PRs are optional and should be used only when they add useful review or rollback value.
 
+Task coordination between Codex and Claude is defined in `Agent.md`. Use that file as the entry point for active tasks and handoff records.
+
 ## Rules For Claude Implementation
 
 Claude can work directly in the local repository, but each task must leave a clean, reviewable commit.
