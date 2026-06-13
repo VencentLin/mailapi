@@ -26,7 +26,11 @@ async function request<T = unknown>(url: string, options: RequestOptions = {}): 
 
   if (!response.ok) {
     const errorBody = await response.json().catch(() => ({}))
-    const detail = (errorBody as { detail?: string }).detail || response.statusText
+    const detailBody = (errorBody as { detail?: unknown; message?: string }).detail
+    const detail =
+      typeof detailBody === 'string'
+        ? detailBody
+        : (errorBody as { message?: string }).message || response.statusText
     throw new ApiError(response.status, detail)
   }
 
@@ -55,6 +59,9 @@ export const http = {
   },
   put<T = unknown>(url: string, body?: unknown) {
     return request<T>(url, { method: 'PUT', body })
+  },
+  patch<T = unknown>(url: string, body?: unknown) {
+    return request<T>(url, { method: 'PATCH', body })
   },
   delete<T = unknown>(url: string) {
     return request<T>(url, { method: 'DELETE' })

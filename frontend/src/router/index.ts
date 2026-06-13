@@ -35,6 +35,11 @@ const router = createRouter({
           component: () => import('@/views/apiKeys/ApiKeyListView.vue'),
         },
         {
+          path: 'verification-code',
+          name: 'verification-code',
+          component: () => import('@/views/verification/VerificationCodeView.vue'),
+        },
+        {
           path: 'logs/mail-fetch',
           name: 'logs-mail-fetch',
           component: () => import('@/views/logs/MailFetchLogView.vue'),

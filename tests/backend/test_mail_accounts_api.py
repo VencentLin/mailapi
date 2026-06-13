@@ -1,0 +1,307 @@
+from __future__ import annotations
+
+from unittest.mock import AsyncMock, patch
+
+import pytest
+from httpx import AsyncClient
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from backend.app.core.config import get_settings
+from backend.app.core.crypto import TokenCipher
+from backend.app.models.enums import MailAccountOwnerType, MailAccountStatus, UserRole
+from backend.app.models.logs import AuditLog, MailAccountClaim, MailFetchLog
+from backend.app.models.mail_account import MailAccount
+from backend.app.services.users import create_user
+
+
+async def _login_as(
+    client: AsyncClient,
+    session: AsyncSession,
+    username: str,
+    role: UserRole,
+) -> tuple[int, str]:
+    user = await create_user(
+        session,
+        username=username,
+        email=f"{username}@example.com",
+        password="pw",
+        role=role,
+    )
+    resp = await client.post("/auth/login", json={"username": username, "password": "pw"})
+    assert resp.status_code == 200
+    return user.id, resp.json()["access_token"]
+
+
+async def _create_account(
+    session: AsyncSession,
+    *,
+    email: str,
+    owner_type: MailAccountOwnerType,
+    owner_user_id: int | None = None,
+    refresh_token: str = "stored-rt",
+) -> MailAccount:
+    cipher = TokenCipher(key=get_settings().token_encryption_key)
+    account = MailAccount(
+        email=email,
+        client_id=f"client-{email}",
+        refresh_token_encrypted=cipher.encrypt(refresh_token),
+        owner_type=owner_type,
+        owner_user_id=owner_user_id,
+        status=MailAccountStatus.ACTIVE,
+        created_via="test",
+    )
+    session.add(account)
+    await session.commit()
+    await session.refresh(account)
+    return account
+
+
+@pytest.mark.asyncio
+async def test_admin_can_list_all_mail_accounts_and_filter_by_user(
+    client: AsyncClient,
+    test_session: AsyncSession,
+):
+    admin_id, admin_token = await _login_as(client, test_session, "mailadmin", UserRole.ADMIN)
+    user_id, _ = await _login_as(client, test_session, "mailuser", UserRole.USER)
+    await _create_account(
+        test_session,
+        email="admin-owned@example.com",
+        owner_type=MailAccountOwnerType.USER,
+        owner_user_id=admin_id,
+    )
+    await _create_account(
+        test_session,
+        email="user-owned@example.com",
+        owner_type=MailAccountOwnerType.USER,
+        owner_user_id=user_id,
+    )
+    await _create_account(
+        test_session,
+        email="public@example.com",
+        owner_type=MailAccountOwnerType.PUBLIC,
+    )
+
+    all_resp = await client.get(
+        "/api/mail-accounts",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert all_resp.status_code == 200
+    assert {item["email"] for item in all_resp.json()} == {
+        "admin-owned@example.com",
+        "user-owned@example.com",
+        "public@example.com",
+    }
+
+    filtered_resp = await client.get(
+        f"/api/mail-accounts?owner_user_id={user_id}",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert filtered_resp.status_code == 200
+    assert [item["email"] for item in filtered_resp.json()] == ["user-owned@example.com"]
+
+
+@pytest.mark.asyncio
+async def test_regular_user_sees_own_and_public_mail_accounts_only(
+    client: AsyncClient,
+    test_session: AsyncSession,
+):
+    owner_id, owner_token = await _login_as(client, test_session, "visibleowner", UserRole.USER)
+    other_id, _ = await _login_as(client, test_session, "hiddenowner", UserRole.USER)
+    await _create_account(
+        test_session,
+        email="own@example.com",
+        owner_type=MailAccountOwnerType.USER,
+        owner_user_id=owner_id,
+    )
+    await _create_account(
+        test_session,
+        email="other@example.com",
+        owner_type=MailAccountOwnerType.USER,
+        owner_user_id=other_id,
+    )
+    await _create_account(
+        test_session,
+        email="pool@example.com",
+        owner_type=MailAccountOwnerType.PUBLIC,
+    )
+
+    resp = await client.get(
+        "/api/mail-accounts",
+        headers={"Authorization": f"Bearer {owner_token}"},
+    )
+
+    assert resp.status_code == 200
+    assert {item["email"] for item in resp.json()} == {"own@example.com", "pool@example.com"}
+
+
+@pytest.mark.asyncio
+async def test_user_can_create_owned_mail_account_without_leaking_refresh_token(
+    client: AsyncClient,
+    test_session: AsyncSession,
+):
+    user_id, token = await _login_as(client, test_session, "mailcreator", UserRole.USER)
+
+    resp = await client.post(
+        "/api/mail-accounts",
+        json={
+            "email": "new-owned@example.com",
+            "client_id": "client-id",
+            "refresh_token": "raw-refresh-token",
+            "remark": "primary",
+        },
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert resp.status_code == 201
+    body = resp.json()
+    assert body["email"] == "new-owned@example.com"
+    assert body["owner_user_id"] == user_id
+    assert "refresh_token" not in body
+
+    stored = (
+        await test_session.execute(
+            select(MailAccount).where(MailAccount.email == "new-owned@example.com")
+        )
+    ).scalar_one()
+    assert "raw-refresh-token" not in stored.refresh_token_encrypted
+    assert stored.owner_type == MailAccountOwnerType.USER
+
+
+@pytest.mark.asyncio
+async def test_user_can_claim_public_mail_account(
+    client: AsyncClient,
+    test_session: AsyncSession,
+):
+    user_id, token = await _login_as(client, test_session, "claimer", UserRole.USER)
+    account = await _create_account(
+        test_session,
+        email="claimable@example.com",
+        owner_type=MailAccountOwnerType.PUBLIC,
+    )
+
+    resp = await client.post(
+        f"/api/mail-accounts/{account.id}/claim",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert resp.status_code == 200
+    assert resp.json()["owner_user_id"] == user_id
+
+    claim = (await test_session.execute(select(MailAccountClaim))).scalar_one()
+    assert claim.mail_account_id == account.id
+    assert claim.claimed_by_user_id == user_id
+
+
+@pytest.mark.asyncio
+async def test_admin_can_view_and_update_refresh_token_with_audit_logs(
+    client: AsyncClient,
+    test_session: AsyncSession,
+):
+    _, admin_token = await _login_as(client, test_session, "credentialadmin", UserRole.ADMIN)
+    account = await _create_account(
+        test_session,
+        email="credential@example.com",
+        owner_type=MailAccountOwnerType.PUBLIC,
+        refresh_token="old-refresh",
+    )
+
+    view_resp = await client.get(
+        f"/api/mail-accounts/{account.id}/credentials",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert view_resp.status_code == 200
+    assert view_resp.json()["refresh_token"] == "old-refresh"
+
+    update_resp = await client.patch(
+        f"/api/mail-accounts/{account.id}/credentials",
+        json={"client_id": "new-client", "refresh_token": "new-refresh"},
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert update_resp.status_code == 200
+
+    refreshed = await test_session.get(MailAccount, account.id)
+    assert refreshed is not None
+    assert refreshed.client_id == "new-client"
+    cipher = TokenCipher(key=get_settings().token_encryption_key)
+    assert cipher.decrypt(refreshed.refresh_token_encrypted) == "new-refresh"
+
+    actions = [
+        item.action
+        for item in (await test_session.execute(select(AuditLog).order_by(AuditLog.id))).scalars()
+    ]
+    assert actions == ["mail_account.credentials.view", "mail_account.credentials.update"]
+
+
+@pytest.mark.asyncio
+async def test_regular_user_cannot_view_raw_credentials(
+    client: AsyncClient,
+    test_session: AsyncSession,
+):
+    user_id, token = await _login_as(client, test_session, "credentialuser", UserRole.USER)
+    account = await _create_account(
+        test_session,
+        email="private-credential@example.com",
+        owner_type=MailAccountOwnerType.USER,
+        owner_user_id=user_id,
+    )
+
+    resp = await client.get(
+        f"/api/mail-accounts/{account.id}/credentials",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert resp.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_user_can_disable_own_mail_account(
+    client: AsyncClient,
+    test_session: AsyncSession,
+):
+    user_id, token = await _login_as(client, test_session, "maildeleter", UserRole.USER)
+    account = await _create_account(
+        test_session,
+        email="disable-me@example.com",
+        owner_type=MailAccountOwnerType.USER,
+        owner_user_id=user_id,
+    )
+
+    resp = await client.delete(
+        f"/api/mail-accounts/{account.id}",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert resp.status_code == 204
+    refreshed = await test_session.get(MailAccount, account.id)
+    assert refreshed is not None
+    assert refreshed.status == MailAccountStatus.DISABLED
+
+
+@pytest.mark.asyncio
+async def test_test_fetch_endpoint_fetches_and_writes_log(
+    client: AsyncClient,
+    test_session: AsyncSession,
+):
+    user_id, token = await _login_as(client, test_session, "mailtester", UserRole.USER)
+    account = await _create_account(
+        test_session,
+        email="test-fetch@example.com",
+        owner_type=MailAccountOwnerType.USER,
+        owner_user_id=user_id,
+    )
+
+    with patch(
+        "backend.app.api.routes.mail_accounts.fetch_messages",
+        new=AsyncMock(return_value=([{"id": "m1", "subject": "Hi"}], "graph")),
+    ):
+        resp = await client.post(
+            f"/api/mail-accounts/{account.id}/test-fetch",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+
+    assert resp.status_code == 200
+    assert resp.json()["protocol"] == "graph"
+    log = (await test_session.execute(select(MailFetchLog))).scalar_one()
+    assert log.operation == "test_fetch"
+    assert log.status == "success"

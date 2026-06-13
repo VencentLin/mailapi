@@ -19,11 +19,12 @@ async def write_mail_fetch_log(
     duration_ms: int,
     error_code: str | None = None,
     error_message: str | None = None,
+    api_key_id: int | None = None,
 ) -> MailFetchLog:
     log = MailFetchLog(
         trace_id=trace_id,
         user_id=user_id,
-        api_key_id=None,
+        api_key_id=api_key_id,
         mail_account_id=mail_account_id,
         email=email,
         mailbox=mailbox,

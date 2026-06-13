@@ -115,6 +115,51 @@ python -m compileall backend
 
 首次调用时，如果带用户 Bearer token，会自动托管到该用户；如果不带 token，会自动托管到公共池。邮箱已托管后，再次调用可只传 `email` 和 `mailbox`，系统会使用数据库里的加密凭据。
 
+也可以使用后台创建的 API Key：
+
+```powershell
+Invoke-RestMethod `
+  -Method Post `
+  -Uri "http://127.0.0.1:8000/api/mail_new" `
+  -Headers @{ Authorization = "Bearer mailapi_xxx" } `
+  -ContentType "application/json" `
+  -Body (@{ email="your-outlook@example.com"; mailbox="INBOX" } | ConvertTo-Json)
+```
+
+无法设置请求头时，也支持在 body 里传 `user_token`。API Key 和 `user_token` 都会把新托管邮箱归属到 Key 所属用户。
+
+## 管理后台功能
+
+当前前端已接入真实接口：
+
+- 工作台：显示我的邮箱、公共池、今日取件、失败次数；管理员额外看到全局用户、邮箱和 API Key 统计。
+- 邮箱管理：普通用户可托管自己的邮箱、查看公共池、认领公共邮箱、更新自己的凭据、测试取件和禁用自己的邮箱；管理员可筛选全部邮箱，并查看或修改明文 refresh token。
+- API Key：用户可创建多个 Key，明文只在创建时显示一次；禁用后不能继续用于取件。
+- 验证码取件测试：支持托管邮箱直接取码，也支持临时传 `client_id` 和 `refresh_token`；可按发件人、主题、正文关键词和正则筛选。
+- 取件日志：管理员看全部，普通用户只看自己的取件记录。
+
+管理员查看或修改 refresh token 会写入 `audit_logs`。
+
+## 验证码 API
+
+```http
+POST /api/verification-code
+```
+
+示例：
+
+```json
+{
+  "email": "your-outlook@example.com",
+  "mailbox": "INBOX",
+  "sender": "noreply",
+  "subject_keyword": "code",
+  "regex": "(?<!\\d)\\d{6}(?!\\d)"
+}
+```
+
+如果邮箱未托管，需要同时传 `client_id` 和 `refresh_token`。如果找到验证码，会返回 `verification_code`、匹配邮件、使用协议和 `trace_id`；找不到时返回 `VERIFICATION_CODE_NOT_FOUND`。
+
 真实 Outlook 验证见：
 
 ```text

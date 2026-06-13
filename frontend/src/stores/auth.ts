@@ -6,6 +6,7 @@ import { ApiError } from '@/api/http'
 export const useAuthStore = defineStore('auth', {
   state: () => ({
     token: (localStorage.getItem('accessToken') || '') as string,
+    userId: 0,
     username: '' as string,
     role: 'user' as 'admin' | 'user',
   }),
@@ -15,6 +16,7 @@ export const useAuthStore = defineStore('auth', {
   },
   actions: {
     setUser(user: UserPublic) {
+      this.userId = user.id
       this.username = user.username
       this.role = user.role
     },
@@ -43,6 +45,7 @@ export const useAuthStore = defineStore('auth', {
 
     logout() {
       this.token = ''
+      this.userId = 0
       this.username = ''
       this.role = 'user'
       localStorage.removeItem('accessToken')
