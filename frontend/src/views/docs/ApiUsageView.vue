@@ -166,9 +166,9 @@ p {
 .code-block {
   position: relative;
   margin-bottom: 14px;
-  border: 1px solid #d9e2ec;
+  border: 1px solid #cbd5e1;
   border-radius: 8px;
-  background: #111827;
+  background: #f8fafc;
 }
 
 .code-block pre {
@@ -176,7 +176,7 @@ p {
   margin: 0;
   overflow-x: auto;
   padding: 16px 52px 16px 16px;
-  color: #f9fafb;
+  color: #0f172a;
   font-family: Consolas, 'Courier New', monospace;
   font-size: 13px;
   line-height: 1.6;
@@ -192,14 +192,16 @@ p {
   justify-content: center;
   width: 32px;
   height: 32px;
-  border: 1px solid #4b5563;
+  border: 1px solid #cbd5e1;
   border-radius: 6px;
-  color: #f9fafb;
-  background: #1f2937;
+  color: #1f2933;
+  background: #ffffff;
   cursor: pointer;
 }
 
 .copy-button:hover {
-  background: #374151;
+  border-color: #409eff;
+  color: #2563eb;
+  background: #eff6ff;
 }
 </style>
