@@ -21,6 +21,10 @@
           <el-icon><Message /></el-icon>
           <span>邮箱管理</span>
         </el-menu-item>
+        <el-menu-item index="/web-mail">
+          <el-icon><Search /></el-icon>
+          <span>网页取件</span>
+        </el-menu-item>
         <el-menu-item index="/api-keys">
           <el-icon><Key /></el-icon>
           <span>API Key</span>
@@ -32,6 +36,10 @@
         <el-menu-item index="/logs/mail-fetch">
           <el-icon><Document /></el-icon>
           <span>取件日志</span>
+        </el-menu-item>
+        <el-menu-item index="/api-usage">
+          <el-icon><Tickets /></el-icon>
+          <span>API说明</span>
         </el-menu-item>
       </el-menu>
     </el-aside>
@@ -52,7 +60,16 @@
 </template>
 
 <script setup lang="ts">
-import { Document, Key, Lock, Message, Monitor, User } from '@element-plus/icons-vue'
+import {
+  Document,
+  Key,
+  Lock,
+  Message,
+  Monitor,
+  Search,
+  Tickets,
+  User,
+} from '@element-plus/icons-vue'
 import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 

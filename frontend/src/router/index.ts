@@ -30,6 +30,11 @@ const router = createRouter({
           component: () => import('@/views/mail/MailAccountListView.vue'),
         },
         {
+          path: 'web-mail',
+          name: 'web-mail',
+          component: () => import('@/views/mail/WebMailFetchView.vue'),
+        },
+        {
           path: 'api-keys',
           name: 'api-keys',
           component: () => import('@/views/apiKeys/ApiKeyListView.vue'),
@@ -43,6 +48,11 @@ const router = createRouter({
           path: 'logs/mail-fetch',
           name: 'logs-mail-fetch',
           component: () => import('@/views/logs/MailFetchLogView.vue'),
+        },
+        {
+          path: 'api-usage',
+          name: 'api-usage',
+          component: () => import('@/views/docs/ApiUsageView.vue'),
         },
       ],
     },
