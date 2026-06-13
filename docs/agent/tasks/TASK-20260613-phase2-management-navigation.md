@@ -1,6 +1,6 @@
 # TASK-20260613-phase2-management-navigation
 
-Status: TODO
+Status: DONE
 Owner: Claude
 Created by: Codex
 Created at: 2026-06-13
@@ -47,7 +47,18 @@ Created at: 2026-06-13
 
 ## Claude 完成记录
 
-Status:
+Status: DONE
 Summary:
+- 创建 `AppLayout.vue`，包含深色侧边栏（工作台/用户管理/邮箱管理/API Key/取件日志）+ 顶部 Header（欢迎提示 + 退出登录按钮）
+- 路由配置：`/` 使用 AppLayout 包裹子路由，所有管理页面懒加载
+- 创建 4 个管理页面占位：UserListView、MailAccountListView、ApiKeyListView、MailFetchLogView，每个都有页面标题和 el-empty 空状态
+- 修复 DashboardView：移除独立的 topbar 和退出按钮（现在由 AppLayout 统一提供）
+- 用户管理菜单对非 admin 角色隐藏（v-if="auth.isAdmin"）
+
 Verification:
+- `cd frontend && npm run build` — 通过，vue-tsc 无错误，vite build 成功
+- 所有页面编译为独立的 chunk（lazy-loaded）
+
 Notes:
+- 管理页面的真实业务逻辑由后续任务实现（TASK-20260613-phase2-user-management 等）
+- 路由守卫已在 TASK-20260613-phase2-frontend-login-guard 中完成
