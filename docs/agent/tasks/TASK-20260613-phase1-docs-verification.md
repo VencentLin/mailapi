@@ -1,6 +1,6 @@
 # TASK-20260613-phase1-docs-verification
 
-Status: IN_PROGRESS
+Status: DONE
 Owner: Claude
 Created by: Codex
 Created at: 2026-06-13
@@ -51,7 +51,24 @@ Created at: 2026-06-13
 
 ## Claude 完成记录
 
-Status:
-Summary:
+Status: DONE
+Summary: Created README.md with install/test/build/docker instructions. Updated Agent.md task status to DONE for all 5 Phase 1 tasks. Added mailapi.egg-info/ and package-lock.json to .gitignore. Ran full Phase 1 verification.
+
 Verification:
-Notes:
+- pytest tests/backend -v → 3 passed (health + 2 metadata)
+- ruff check backend tests/backend → All checks passed
+- cd frontend && npm run build → success (dist/index.html generated)
+- python -m compileall backend → no errors
+- Docker: NOT available on this Windows machine, `docker build` was not run
+
+Commits:
+- ec568fd feat: scaffold fastapi backend
+- 63fa94b feat: add database foundation schema
+- 383cb69 feat: add vue admin shell
+- 45d5187 feat: add single-container docker runtime
+- 733475b docs: add phase 1 verification guide
+- 3a91cb1 docs: mark phase 1 tasks as done with completion records
+- 80b6880 chore: normalize agent.md line endings
+- 7fe05e5 chore: add build artifacts to gitignore
+
+Notes: All 5 Phase 1 tasks complete. Docker build not verified due to missing Docker daemon. Node.js 20.11.0 required downgrading frontend deps from Vite 7 to Vite 5. Tasks NOT archived pending user confirmation.
