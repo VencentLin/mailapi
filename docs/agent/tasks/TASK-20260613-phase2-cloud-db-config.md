@@ -1,6 +1,6 @@
 # TASK-20260613-phase2-cloud-db-config
 
-Status: TODO
+Status: DONE
 Owner: Claude
 Created by: Codex
 Created at: 2026-06-13
@@ -51,7 +51,21 @@ Created at: 2026-06-13
 
 ## Claude 完成记录
 
-Status:
+Status: DONE
 Summary:
+- `backend/app/api/routes/health.py`：新增 `check_database()` 协程和 `GET /health/db` 路由，使用 `AsyncSessionLocal` 执行 `select 1` 验证云端 PGSQL 连接。
+- `tests/backend/test_health.py`：新增 `test_db_health_endpoint_reports_configured_database`，通过 `monkeypatch` 替换 `check_database`，无需真实 DB 也能跑通。
+- `.env.example`：将 `DATABASE_URL` 占位符改为 `postgresql+asyncpg://DB_USER:DB_PASSWORD@DB_HOST:5432/DB_NAME`，避免误导用户使用 `mailapi:change-me` 这种像可用密码的样例。
+- `README.md`：新增「配置云端 PostgreSQL」一节，写明 `.env` 填写格式、`/api/health/db` 验证方法和 `alembic upgrade head` 命令，并在「打开」列表里加上数据库健康检查地址。
+
 Verification:
+- `python -m pytest tests/backend/test_health.py -v` → 2 passed（test_health_endpoint_returns_service_status、test_db_health_endpoint_reports_configured_database）。
+- `ruff check backend tests/backend` → All checks passed.
+
 Notes:
+- 真实云数据库验证已由 Codex 补做：用户提供 `DATABASE_URL` 后，先遇到 `permission denied for schema public`，用户修复 schema 权限后迁移成功。
+- `python -m alembic upgrade head` → success，云端 PostgreSQL 当前迁移版本为 `20260613_0001 (head)`。
+- 真实数据库健康检查 → `{"status": "ok", "database": "postgresql"}`。
+- 云端 public schema 表已创建：`alembic_version`、`api_keys`、`audit_logs`、`mail_account_claims`、`mail_accounts`、`mail_fetch_logs`、`users`。
+- 发现并修正迁移依赖缺口：Alembic 当前使用同步 PostgreSQL 驱动运行迁移，已将 `psycopg2-binary` 加入 `pyproject.toml`，避免只在本机 `.venv` 临时安装。
+- 未修改 `backend/app/db/session.py`，保留原有 `pool_pre_ping=True` 行为；如果云端 PGSQL 经常断连可后续追加 `pool_recycle`。

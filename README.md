@@ -24,6 +24,34 @@ copy .env.example .env
 
 按实际情况修改 `.env` 里的 `DATABASE_URL`。第一阶段健康检查和基础测试不会连接真实数据库。
 
+## 配置云端 PostgreSQL
+
+不要把真实数据库密码提交到 git。复制 `.env.example` 为 `.env`，然后填写：
+
+```env
+DATABASE_URL=postgresql+asyncpg://用户名:密码@主机:5432/数据库名
+```
+
+应用运行时使用 `asyncpg`，`DATABASE_URL` 保持 `postgresql+asyncpg://...` 格式。Alembic 迁移会在内部使用项目依赖里的同步 PostgreSQL 驱动执行建表。
+
+验证数据库连接：
+
+```bash
+uvicorn backend.app.main:app --reload --host 127.0.0.1 --port 8000
+```
+
+打开 `http://127.0.0.1:8000/api/health/db`，正常时返回：
+
+```json
+{"status": "ok", "database": "postgresql"}
+```
+
+执行迁移：
+
+```bash
+alembic upgrade head
+```
+
 启动后端：
 
 ```bash
@@ -41,6 +69,7 @@ npm run dev -- --host 127.0.0.1 --port 5173
 打开：
 
 - 后端健康检查：`http://127.0.0.1:8000/api/health`
+- 数据库健康检查：`http://127.0.0.1:8000/api/health/db`
 - 前端开发服务：`http://127.0.0.1:5173/`
 
 ## 本机验证

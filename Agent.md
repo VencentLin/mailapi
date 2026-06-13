@@ -45,7 +45,7 @@ Claude 负责：
 
 | ID | 状态 | 负责人 | 任务文件 |
 |---|---|---|---|
-| TASK-20260613-phase2-cloud-db-config | TODO | Claude | `docs/agent/tasks/TASK-20260613-phase2-cloud-db-config.md` |
+| TASK-20260613-phase2-cloud-db-config | DONE | Claude | `docs/agent/tasks/TASK-20260613-phase2-cloud-db-config.md` |
 | TASK-20260613-phase2-auth-backend | TODO | Claude | `docs/agent/tasks/TASK-20260613-phase2-auth-backend.md` |
 | TASK-20260613-phase2-frontend-login-guard | TODO | Claude | `docs/agent/tasks/TASK-20260613-phase2-frontend-login-guard.md` |
 | TASK-20260613-phase2-management-navigation | TODO | Claude | `docs/agent/tasks/TASK-20260613-phase2-management-navigation.md` |
