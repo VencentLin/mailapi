@@ -13,5 +13,9 @@ build/
 logs/
 *.log
 
+# Build artifacts
+mailapi.egg-info/
+package-lock.json
+
 # Local upstream reference clone, not part of this project.
 upstream-MS_OAuth2API_Next/
