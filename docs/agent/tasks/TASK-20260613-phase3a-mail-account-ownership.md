@@ -1,6 +1,6 @@
 # TASK-20260613-phase3a-mail-account-ownership
 
-Status: TODO
+Status: DONE
 Owner: Claude
 Created by: Codex
 Created at: 2026-06-13
@@ -53,7 +53,22 @@ Created at: 2026-06-13
 
 ## Claude 完成记录
 
-Status:
+Status: DONE
 Summary:
+- 新增 `backend/app/schemas/mail_accounts.py` — MailAccountResolve (输入), MailAccountResolved (输出)
+- 新增 `backend/app/services/mail_accounts.py` — resolve_or_create_mail_account 服务函数
+  - email 统一 strip().lower() 归一化
+  - 已存在邮箱 → 返回已有记录（忽略新凭据）
+  - 不存在 + 有用户 → 创建 user-owned
+  - 不存在 + 无用户 → 创建 public
+  - 缺少 client_id 或 refresh_token → MailAccountNotReadyError
+  - refresh_token 通过 TokenCipher 加密落库
+- 新增 `tests/backend/test_mail_accounts_service.py` — 8 个测试覆盖所有场景
+
 Verification:
+- `ruff check backend tests/backend` — All checks passed
+- `pytest tests/backend -q` — 38 passed
+
 Notes:
+- 任务范围仅为 service 层，不包含 API 路由或前端页面
+- 加密后的 refresh_token 在数据库中不可读为明文
