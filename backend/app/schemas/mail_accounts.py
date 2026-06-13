@@ -53,6 +53,28 @@ class MailAccountCreate(BaseModel):
     remark: str | None = Field(default=None, max_length=500)
 
 
+class MailAccountImportRequest(BaseModel):
+    text: str = Field(min_length=1)
+    owner_type: MailAccountOwnerType | None = None
+    owner_user_id: int | None = None
+    remark: str | None = Field(default=None, max_length=500)
+
+
+class MailAccountImportItem(BaseModel):
+    line: int
+    email: str | None = None
+    status: str
+    message: str
+    account_id: int | None = None
+
+
+class MailAccountImportResponse(BaseModel):
+    created: int
+    skipped: int
+    failed: int
+    items: list[MailAccountImportItem]
+
+
 class MailAccountUpdate(BaseModel):
     owner_type: MailAccountOwnerType | None = None
     owner_user_id: int | None = None

@@ -6,6 +6,7 @@ from typing import Any
 from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from pydantic import EmailStr, TypeAdapter, ValidationError
 from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -21,6 +22,9 @@ from backend.app.schemas.mail_accounts import (
     MailAccountCreate,
     MailAccountCredentialsPublic,
     MailAccountCredentialsUpdate,
+    MailAccountImportItem,
+    MailAccountImportRequest,
+    MailAccountImportResponse,
     MailAccountPublic,
     MailAccountTestFetchResponse,
     MailAccountUpdate,
@@ -30,6 +34,7 @@ from backend.app.services.mail_fetch_logs import write_mail_fetch_log
 from backend.app.services.mail_fetchers import MailCredentials, clear_mailbox, fetch_messages
 
 router = APIRouter(prefix="/mail-accounts", tags=["mail-accounts"])
+email_adapter = TypeAdapter(EmailStr)
 
 
 def _cipher() -> TokenCipher:
@@ -115,6 +120,41 @@ def _credentials(account: MailAccount) -> MailCredentials:
     )
 
 
+def _owner_for_create(
+    current_user: User,
+    *,
+    owner_type: MailAccountOwnerType | None,
+    owner_user_id: int | None,
+    created_by_admin_label: str,
+    created_by_user_label: str,
+) -> tuple[MailAccountOwnerType, int | None, str]:
+    if _is_admin(current_user):
+        final_owner_type = owner_type or MailAccountOwnerType.USER
+        final_owner_user_id = owner_user_id
+        if final_owner_type == MailAccountOwnerType.USER and final_owner_user_id is None:
+            final_owner_user_id = current_user.id
+        if final_owner_type == MailAccountOwnerType.PUBLIC:
+            final_owner_user_id = None
+        return final_owner_type, final_owner_user_id, created_by_admin_label
+    return MailAccountOwnerType.USER, current_user.id, created_by_user_label
+
+
+def _parse_import_line(raw_line: str) -> tuple[str, str, str]:
+    parts = [part.strip() for part in raw_line.split("----", 3)]
+    if len(parts) != 4:
+        raise ValueError("Format must be email----password----client_id----refresh_token")
+    email, _password, client_id, refresh_token = parts
+    if not client_id:
+        raise ValueError("client_id is required")
+    if not refresh_token:
+        raise ValueError("refresh_token is required")
+    try:
+        normalized_email = str(email_adapter.validate_python(email)).strip().lower()
+    except ValidationError as exc:
+        raise ValueError("email is invalid") from exc
+    return normalized_email, client_id, refresh_token
+
+
 @router.get("", response_model=list[MailAccountPublic])
 async def list_mail_accounts(
     owner_user_id: int | None = Query(default=None),
@@ -159,18 +199,13 @@ async def create_mail_account(
     if existing is not None:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Mail account exists")
 
-    if _is_admin(current_user):
-        owner_type = payload.owner_type or MailAccountOwnerType.USER
-        owner_user_id = payload.owner_user_id
-        if owner_type == MailAccountOwnerType.USER and owner_user_id is None:
-            owner_user_id = current_user.id
-        if owner_type == MailAccountOwnerType.PUBLIC:
-            owner_user_id = None
-        created_via = "admin"
-    else:
-        owner_type = MailAccountOwnerType.USER
-        owner_user_id = current_user.id
-        created_via = "user_web"
+    owner_type, owner_user_id, created_via = _owner_for_create(
+        current_user,
+        owner_type=payload.owner_type,
+        owner_user_id=payload.owner_user_id,
+        created_by_admin_label="admin",
+        created_by_user_label="user_web",
+    )
 
     account = MailAccount(
         email=email,
@@ -188,6 +223,98 @@ async def create_mail_account(
     await session.commit()
     await session.refresh(account)
     return _public_account(account, current_user)
+
+
+@router.post("/import", response_model=MailAccountImportResponse)
+async def import_mail_accounts(
+    payload: MailAccountImportRequest,
+    session: AsyncSession = Depends(get_db_session),
+    current_user: User = Depends(get_current_user),
+) -> MailAccountImportResponse:
+    owner_type, owner_user_id, created_via = _owner_for_create(
+        current_user,
+        owner_type=payload.owner_type,
+        owner_user_id=payload.owner_user_id,
+        created_by_admin_label="admin_import",
+        created_by_user_label="user_import",
+    )
+    items: list[MailAccountImportItem] = []
+    seen_emails: set[str] = set()
+
+    for line_number, raw_line in enumerate(payload.text.splitlines(), start=1):
+        line = raw_line.strip()
+        if not line:
+            continue
+        try:
+            email, client_id, refresh_token = _parse_import_line(line)
+            if email in seen_emails:
+                items.append(
+                    MailAccountImportItem(
+                        line=line_number,
+                        email=email,
+                        status="skipped",
+                        message="Duplicate email in import text",
+                    )
+                )
+                continue
+            existing = (
+                await session.execute(select(MailAccount).where(MailAccount.email == email))
+            ).scalar_one_or_none()
+            if existing is not None:
+                items.append(
+                    MailAccountImportItem(
+                        line=line_number,
+                        email=email,
+                        status="skipped",
+                        message="Mail account already exists",
+                        account_id=existing.id,
+                    )
+                )
+                seen_emails.add(email)
+                continue
+
+            account = MailAccount(
+                email=email,
+                client_id=client_id,
+                refresh_token_encrypted=_cipher().encrypt(refresh_token),
+                owner_type=owner_type,
+                owner_user_id=owner_user_id,
+                status=MailAccountStatus.ACTIVE,
+                remark=payload.remark,
+                created_by_user_id=current_user.id,
+                created_via=created_via,
+            )
+            session.add(account)
+            await session.flush()
+            seen_emails.add(email)
+            items.append(
+                MailAccountImportItem(
+                    line=line_number,
+                    email=email,
+                    status="created",
+                    message="Mail account imported",
+                    account_id=account.id,
+                )
+            )
+        except ValueError as exc:
+            items.append(
+                MailAccountImportItem(
+                    line=line_number,
+                    status="failed",
+                    message=str(exc),
+                )
+            )
+
+    await session.commit()
+    created = sum(1 for item in items if item.status == "created")
+    skipped = sum(1 for item in items if item.status == "skipped")
+    failed = sum(1 for item in items if item.status == "failed")
+    return MailAccountImportResponse(
+        created=created,
+        skipped=skipped,
+        failed=failed,
+        items=items,
+    )
 
 
 @router.get("/{account_id}", response_model=MailAccountPublic)

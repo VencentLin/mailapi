@@ -305,3 +305,124 @@ async def test_test_fetch_endpoint_fetches_and_writes_log(
     log = (await test_session.execute(select(MailFetchLog))).scalar_one()
     assert log.operation == "test_fetch"
     assert log.status == "success"
+
+
+@pytest.mark.asyncio
+async def test_import_mail_accounts_accepts_delimited_format_and_ignores_password(
+    client: AsyncClient,
+    test_session: AsyncSession,
+):
+    user_id, token = await _login_as(client, test_session, "mailimporter", UserRole.USER)
+
+    resp = await client.post(
+        "/api/mail-accounts/import",
+        json={
+            "text": "\n".join(
+                [
+                    " FirstImport@outlook.com ----secret-password----client-1----refresh-1",
+                    "secondimport@outlook.com----another-password----client-2----refresh-2----tail",
+                ]
+            )
+        },
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["created"] == 2
+    assert body["skipped"] == 0
+    assert body["failed"] == 0
+
+    accounts = (
+        await test_session.execute(
+            select(MailAccount).where(
+                MailAccount.email.in_(
+                    ["firstimport@outlook.com", "secondimport@outlook.com"]
+                )
+            )
+        )
+    ).scalars().all()
+    assert {account.owner_user_id for account in accounts} == {user_id}
+    assert {account.owner_type for account in accounts} == {MailAccountOwnerType.USER}
+
+    cipher = TokenCipher(key=get_settings().token_encryption_key)
+    tokens_by_email = {
+        account.email: cipher.decrypt(account.refresh_token_encrypted)
+        for account in accounts
+    }
+    assert tokens_by_email["firstimport@outlook.com"] == "refresh-1"
+    assert tokens_by_email["secondimport@outlook.com"] == "refresh-2----tail"
+    assert "secret-password" not in "\n".join(
+        account.refresh_token_encrypted for account in accounts
+    )
+
+
+@pytest.mark.asyncio
+async def test_import_mail_accounts_reports_existing_duplicates_and_invalid_lines(
+    client: AsyncClient,
+    test_session: AsyncSession,
+):
+    _, token = await _login_as(client, test_session, "mailimporter2", UserRole.USER)
+    await _create_account(
+        test_session,
+        email="existing-import@example.com",
+        owner_type=MailAccountOwnerType.PUBLIC,
+    )
+
+    resp = await client.post(
+        "/api/mail-accounts/import",
+        json={
+            "text": "\n".join(
+                [
+                    "existing-import@example.com----pw----client-existing----refresh-existing",
+                    "new-import@example.com----pw----client-new----refresh-new",
+                    "NEW-import@example.com----pw----client-dup----refresh-dup",
+                    "bad-line-without-delimiters",
+                    "not-an-email----pw----client-bad----refresh-bad",
+                ]
+            )
+        },
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["created"] == 1
+    assert body["skipped"] == 2
+    assert body["failed"] == 2
+    assert [item["status"] for item in body["items"]] == [
+        "skipped",
+        "created",
+        "skipped",
+        "failed",
+        "failed",
+    ]
+
+
+@pytest.mark.asyncio
+async def test_admin_can_import_mail_accounts_to_public_pool(
+    client: AsyncClient,
+    test_session: AsyncSession,
+):
+    _, token = await _login_as(client, test_session, "adminimporter", UserRole.ADMIN)
+
+    resp = await client.post(
+        "/api/mail-accounts/import",
+        json={
+            "owner_type": "public",
+            "text": "public-import@example.com----pw----client-public----refresh-public",
+        },
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert resp.status_code == 200
+    assert resp.json()["created"] == 1
+
+    account = (
+        await test_session.execute(
+            select(MailAccount).where(MailAccount.email == "public-import@example.com")
+        )
+    ).scalar_one()
+    assert account.owner_type == MailAccountOwnerType.PUBLIC
+    assert account.owner_user_id is None
+    assert account.created_via == "admin_import"

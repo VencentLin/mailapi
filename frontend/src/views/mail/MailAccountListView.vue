@@ -4,6 +4,7 @@
       <h2>邮箱管理</h2>
       <div class="header-actions">
         <el-button :icon="Refresh" :loading="loading" @click="loadAccounts">刷新</el-button>
+        <el-button :icon="Upload" @click="showImportDialog = true">批量导入</el-button>
         <el-button type="primary" :icon="Plus" @click="showCreateDialog = true">
           托管邮箱
         </el-button>
@@ -114,6 +115,57 @@
       </template>
     </el-dialog>
 
+    <el-dialog v-model="showImportDialog" title="批量导入邮箱" width="760px">
+      <el-form label-width="100px">
+        <el-form-item label="导入格式">
+          <el-input
+            v-model="importForm.text"
+            type="textarea"
+            :rows="8"
+            placeholder="邮箱----密码----客户端ID----刷新令牌"
+          />
+        </el-form-item>
+        <el-form-item v-if="auth.isAdmin" label="归属">
+          <el-radio-group v-model="importForm.owner_type">
+            <el-radio-button label="user">用户</el-radio-button>
+            <el-radio-button label="public">公共池</el-radio-button>
+          </el-radio-group>
+        </el-form-item>
+        <el-form-item v-if="auth.isAdmin && importForm.owner_type === 'user'" label="用户 ID">
+          <el-input-number v-model="importForm.owner_user_id" :min="1" />
+        </el-form-item>
+        <el-form-item label="备注">
+          <el-input v-model="importForm.remark" />
+        </el-form-item>
+      </el-form>
+
+      <section v-if="importResult" class="import-result">
+        <el-alert
+          :title="`创建 ${importResult.created}，跳过 ${importResult.skipped}，失败 ${importResult.failed}`"
+          type="info"
+          show-icon
+          :closable="false"
+        />
+        <el-table :data="importResult.items" max-height="260" size="small">
+          <el-table-column prop="line" label="行" width="70" />
+          <el-table-column prop="email" label="邮箱" min-width="190" />
+          <el-table-column label="状态" width="100">
+            <template #default="{ row }">
+              <el-tag :type="importStatusTag(row.status)" size="small">
+                {{ importStatusLabel(row.status) }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column prop="message" label="说明" min-width="220" show-overflow-tooltip />
+        </el-table>
+      </section>
+
+      <template #footer>
+        <el-button @click="showImportDialog = false">关闭</el-button>
+        <el-button type="primary" :loading="importing" @click="handleImport">导入</el-button>
+      </template>
+    </el-dialog>
+
     <el-dialog v-model="showCredentialsDialog" title="邮箱凭据" width="580px">
       <el-form label-width="110px">
         <el-form-item label="邮箱">
@@ -142,7 +194,16 @@
 </template>
 
 <script setup lang="ts">
-import { Check, Delete, Key, Plus, Refresh, Search, VideoPlay } from '@element-plus/icons-vue'
+import {
+  Check,
+  Delete,
+  Key,
+  Plus,
+  Refresh,
+  Search,
+  Upload,
+  VideoPlay,
+} from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from 'element-plus'
 import { onMounted, reactive, ref } from 'vue'
 
@@ -156,6 +217,7 @@ import {
   disableMailAccount,
   fetchMailAccountCredentials,
   fetchMailAccounts,
+  importMailAccounts,
   testFetchMailAccount,
   updateMailAccountCredentials,
 } from '@/api/mailAccounts'
@@ -165,9 +227,11 @@ const auth = useAuthStore()
 const accounts = ref<MailAccount[]>([])
 const loading = ref(false)
 const creating = ref(false)
+const importing = ref(false)
 const savingCredentials = ref(false)
 const error = ref('')
 const showCreateDialog = ref(false)
+const showImportDialog = ref(false)
 const showCredentialsDialog = ref(false)
 const createFormRef = ref<FormInstance>()
 
@@ -185,6 +249,14 @@ const createForm = reactive<MailAccountCreate>({
   owner_user_id: null,
   remark: '',
 })
+
+const importForm = reactive({
+  text: '',
+  owner_type: 'user' as 'user' | 'public',
+  owner_user_id: null as number | null,
+  remark: '',
+})
+const importResult = ref<Awaited<ReturnType<typeof importMailAccounts>> | null>(null)
 
 const credentials = reactive({
   account_id: 0,
@@ -217,6 +289,21 @@ function statusTag(status: MailAccount['status']) {
   if (status === 'active') return 'success'
   if (status === 'invalid') return 'danger'
   return 'info'
+}
+
+function importStatusLabel(status: string) {
+  const labels: Record<string, string> = {
+    created: '已创建',
+    skipped: '已跳过',
+    failed: '失败',
+  }
+  return labels[status] || status
+}
+
+function importStatusTag(status: string) {
+  if (status === 'created') return 'success'
+  if (status === 'failed') return 'danger'
+  return 'warning'
 }
 
 function canManage(row: MailAccount) {
@@ -256,6 +343,31 @@ async function handleCreate() {
     error.value = e instanceof ApiError ? e.message : '创建邮箱失败'
   } finally {
     creating.value = false
+  }
+}
+
+async function handleImport() {
+  importing.value = true
+  error.value = ''
+  importResult.value = null
+  try {
+    importResult.value = await importMailAccounts({
+      text: importForm.text,
+      owner_type: auth.isAdmin ? importForm.owner_type : undefined,
+      owner_user_id:
+        auth.isAdmin && importForm.owner_type === 'user'
+          ? importForm.owner_user_id
+          : undefined,
+      remark: importForm.remark || undefined,
+    })
+    ElMessage.success(
+      `导入完成：创建 ${importResult.value.created}，跳过 ${importResult.value.skipped}，失败 ${importResult.value.failed}`,
+    )
+    await loadAccounts()
+  } catch (e) {
+    error.value = e instanceof ApiError ? e.message : '批量导入失败'
+  } finally {
+    importing.value = false
   }
 }
 
@@ -341,5 +453,12 @@ onMounted(loadAccounts)
 .error-msg {
   color: #f56c6c;
   margin-bottom: 16px;
+}
+
+.import-result {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 16px;
 }
 </style>

@@ -34,6 +34,28 @@ export interface MailAccountCreate {
   remark?: string | null
 }
 
+export interface MailAccountImportRequest {
+  text: string
+  owner_type?: MailAccountOwnerType
+  owner_user_id?: number | null
+  remark?: string | null
+}
+
+export interface MailAccountImportItem {
+  line: number
+  email: string | null
+  status: 'created' | 'skipped' | 'failed'
+  message: string
+  account_id: number | null
+}
+
+export interface MailAccountImportResponse {
+  created: number
+  skipped: number
+  failed: number
+  items: MailAccountImportItem[]
+}
+
 export interface MailAccountCredentials {
   client_id: string
   refresh_token: string
@@ -69,6 +91,10 @@ export function fetchMailAccounts(filters: MailAccountFilters = {}) {
 
 export function createMailAccount(payload: MailAccountCreate) {
   return http.post<MailAccount>('/api/mail-accounts', payload)
+}
+
+export function importMailAccounts(payload: MailAccountImportRequest) {
+  return http.post<MailAccountImportResponse>('/api/mail-accounts/import', payload)
 }
 
 export function claimMailAccount(id: number) {
