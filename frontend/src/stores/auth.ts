@@ -27,15 +27,17 @@ export const useAuthStore = defineStore('auth', {
       this.setUser(me)
     },
 
-    async loadMe() {
-      if (!this.token) return
+    async loadMe(): Promise<boolean> {
+      if (!this.token) return false
       try {
         const me = await fetchMe()
         this.setUser(me)
+        return true
       } catch (e) {
         if (e instanceof ApiError && e.status === 401) {
           this.logout()
         }
+        return false
       }
     },
 

@@ -1,10 +1,10 @@
 from datetime import datetime
 
-from sqlalchemy import JSON, DateTime, Enum, ForeignKey, String
+from sqlalchemy import JSON, DateTime, ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from backend.app.models.base import Base, TimestampMixin
-from backend.app.models.enums import ApiKeyStatus
+from backend.app.models.enums import ApiKeyStatus, string_enum
 
 
 class ApiKey(TimestampMixin, Base):
@@ -16,7 +16,7 @@ class ApiKey(TimestampMixin, Base):
     key_prefix: Mapped[str] = mapped_column(String(16), nullable=False, index=True)
     key_hash: Mapped[str] = mapped_column(String(255), nullable=False)
     scopes: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
-    status: Mapped[ApiKeyStatus] = mapped_column(Enum(ApiKeyStatus), nullable=False)
+    status: Mapped[ApiKeyStatus] = mapped_column(string_enum(ApiKeyStatus), nullable=False)
     expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     last_used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 

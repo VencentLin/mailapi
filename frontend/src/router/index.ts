@@ -44,17 +44,22 @@ const router = createRouter({
   ],
 })
 
-router.beforeEach((to, _from, next) => {
+router.beforeEach(async (to, _from, next) => {
   const auth = useAuthStore()
+  let hasRestoredUser = true
+
+  if (auth.isAuthenticated && !auth.username) {
+    hasRestoredUser = await auth.loadMe()
+  }
 
   if (to.meta.public) {
-    if (auth.isAuthenticated) {
+    if (auth.isAuthenticated && hasRestoredUser) {
       return next({ name: 'dashboard' })
     }
     return next()
   }
 
-  if (!auth.isAuthenticated) {
+  if (!auth.isAuthenticated || !hasRestoredUser) {
     return next({ name: 'login', query: { redirect: to.fullPath } })
   }
 

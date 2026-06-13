@@ -1,5 +1,16 @@
 from enum import StrEnum
 
+from sqlalchemy import Enum as SqlEnum
+
+
+def string_enum[T: StrEnum](enum_cls: type[T]) -> SqlEnum:
+    return SqlEnum(
+        enum_cls,
+        values_callable=lambda cls: [member.value for member in cls],
+        native_enum=False,
+        validate_strings=True,
+    )
+
 
 class UserRole(StrEnum):
     ADMIN = "admin"

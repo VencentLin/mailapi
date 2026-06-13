@@ -1,10 +1,10 @@
 from datetime import datetime
 
-from sqlalchemy import DateTime, Enum, ForeignKey, String, Text
+from sqlalchemy import DateTime, ForeignKey, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from backend.app.models.base import Base, TimestampMixin
-from backend.app.models.enums import MailAccountOwnerType, MailAccountStatus
+from backend.app.models.enums import MailAccountOwnerType, MailAccountStatus, string_enum
 
 
 class MailAccount(TimestampMixin, Base):
@@ -15,12 +15,15 @@ class MailAccount(TimestampMixin, Base):
     client_id: Mapped[str] = mapped_column(String(255), nullable=False)
     refresh_token_encrypted: Mapped[str] = mapped_column(Text, nullable=False)
     owner_type: Mapped[MailAccountOwnerType] = mapped_column(
-        Enum(MailAccountOwnerType),
+        string_enum(MailAccountOwnerType),
         nullable=False,
         index=True,
     )
     owner_user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), index=True)
-    status: Mapped[MailAccountStatus] = mapped_column(Enum(MailAccountStatus), nullable=False)
+    status: Mapped[MailAccountStatus] = mapped_column(
+        string_enum(MailAccountStatus),
+        nullable=False,
+    )
     default_proxy: Mapped[str | None] = mapped_column(String(512))
     last_protocol: Mapped[str | None] = mapped_column(String(32))
     last_success_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
