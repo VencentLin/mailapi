@@ -75,7 +75,7 @@ const CodeBlock = defineComponent({
             onClick: () => copyCode(props.code),
             title: '复制',
           },
-          [h(DocumentCopy)],
+          [h(DocumentCopy), h('span', { class: 'copy-button-label' }, '复制')],
         ),
         h('pre', props.code),
       ])
@@ -171,11 +171,11 @@ p {
   background: #f8fafc;
 }
 
-.code-block pre {
+.code-block :deep(pre) {
   min-height: 48px;
   margin: 0;
   overflow-x: auto;
-  padding: 16px 52px 16px 16px;
+  padding: 18px 96px 18px 18px;
   color: #0f172a;
   font-family: Consolas, 'Courier New', monospace;
   font-size: 13px;
@@ -183,25 +183,33 @@ p {
   white-space: pre-wrap;
 }
 
-.copy-button {
+.code-block :deep(.copy-button) {
   position: absolute;
   top: 10px;
   right: 10px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
+  gap: 5px;
   height: 32px;
+  padding: 0 10px;
   border: 1px solid #cbd5e1;
   border-radius: 6px;
   color: #1f2933;
   background: #ffffff;
   cursor: pointer;
+  font-size: 12px;
+  line-height: 1;
+  z-index: 2;
 }
 
-.copy-button:hover {
+.code-block :deep(.copy-button:hover) {
   border-color: #409eff;
   color: #2563eb;
   background: #eff6ff;
+}
+
+.code-block :deep(.copy-button-label) {
+  white-space: nowrap;
 }
 </style>
