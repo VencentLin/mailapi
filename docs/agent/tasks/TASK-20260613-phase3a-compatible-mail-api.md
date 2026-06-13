@@ -1,6 +1,6 @@
 # TASK-20260613-phase3a-compatible-mail-api
 
-Status: TODO
+Status: DONE
 Owner: Claude
 Created by: Codex
 Created at: 2026-06-13
@@ -57,7 +57,21 @@ Created at: 2026-06-13
 
 ## Claude 完成记录
 
-Status:
+Status: DONE
 Summary:
+- 新增 `backend/app/api/routes/mail.py` — POST /api/mail/fetch
+  - get_optional_user: 可选认证（无 token 时返回 None，不报 401）
+  - 认证用户 → resolve_or_create_mail_account 创建 user-owned 账号 → 解密 token → 取件
+  - 匿名请求 → 创建 public 账号 → 取件
+  - 已存在账号 → 使用存储凭据（忽略请求中新凭据）
+  - 缺少 client_id/refresh_token → 400 错误
+- 新增 `tests/backend/test_mail_api.py` — 5 个 API 集成测试
+  - 认证用户取件、匿名取件、缺少 email 422、缺少凭据 400、已存在账号取件
+
 Verification:
+- `ruff check backend tests/backend` — All checks passed
+- `pytest tests/backend -q` — 50 passed
+
 Notes:
+- API 兼容旧有调用方式：POST /api/mail/fetch { email, client_id?, refresh_token? }
+- get_optional_user 自己实现了解码逻辑（复制自 auth.py 的 get_current_user），避免循环依赖
