@@ -8,11 +8,11 @@ import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from backend.app.core.config import get_settings
 from backend.app.core.crypto import TokenCipher
-from backend.app.models.enums import MailAccountOwnerType, MailAccountStatus, UserRole, UserStatus
+from backend.app.models.enums import MailAccountOwnerType, MailAccountStatus, UserRole
 from backend.app.models.mail_account import MailAccount
-from backend.app.services.mail_accounts import resolve_or_create_mail_account
-from backend.app.schemas.mail_accounts import MailAccountResolve
+from backend.app.services.mail_fetchers import MailFetchResult
 from backend.app.services.users import create_user
 
 
@@ -39,7 +39,7 @@ async def test_fetch_authenticated_with_token_creates_and_fetches(
     client: AsyncClient, test_session: AsyncSession
 ):
     """User provides token → account is created/retrieved → mail fetched."""
-    user = await create_user(
+    await create_user(
         test_session,
         username="fetcher",
         email="fetcher@example.com",
@@ -52,9 +52,9 @@ async def test_fetch_authenticated_with_token_creates_and_fetches(
     token = login_resp.json()["access_token"]
 
     with patch(
-        "backend.app.services.mail_fetchers.fetch_mail_for_account",
+        "backend.app.api.routes.mail.fetch_mail_for_account",
         new=AsyncMock(
-            return_value=AsyncMock(
+            return_value=MailFetchResult(
                 success=True, message_count=3, provider="graph"
             )
         ),
@@ -82,9 +82,9 @@ async def test_fetch_anonymous_creates_public_and_fetches(
 ):
     """No auth → public account created → mail fetched."""
     with patch(
-        "backend.app.services.mail_fetchers.fetch_mail_for_account",
+        "backend.app.api.routes.mail.fetch_mail_for_account",
         new=AsyncMock(
-            return_value=AsyncMock(
+            return_value=MailFetchResult(
                 success=True, message_count=1, provider="graph"
             )
         ),
@@ -116,7 +116,7 @@ async def test_fetch_new_account_missing_credentials_returns_400(
     client: AsyncClient, test_session: AsyncSession
 ):
     """New email with empty client_id → 400 error."""
-    user = await create_user(
+    await create_user(
         test_session,
         username="badreq",
         email="badreq@example.com",
@@ -146,12 +146,10 @@ async def test_fetch_existing_account_no_new_credentials_needed(
     client: AsyncClient, test_session: AsyncSession
 ):
     """Existing account → fetch with stored credentials (no new tokens needed)."""
-    from backend.app.core.config import get_settings
-
     cipher = TokenCipher(key=get_settings().token_encryption_key)
     await _create_account(test_session, "existing@outlook.com", "stored-rt", cipher)
 
-    user = await create_user(
+    await create_user(
         test_session,
         username="existinguser",
         email="eu@example.com",
@@ -164,14 +162,13 @@ async def test_fetch_existing_account_no_new_credentials_needed(
     token = login_resp.json()["access_token"]
 
     with patch(
-        "backend.app.services.mail_fetchers.fetch_mail_for_account",
+        "backend.app.api.routes.mail.fetch_mail_for_account",
         new=AsyncMock(
-            return_value=AsyncMock(
+            return_value=MailFetchResult(
                 success=True, message_count=2, provider="graph"
             )
         ),
     ):
-        # No client_id/refresh_token passed, but account already exists
         resp = await client.post(
             "/api/mail/fetch",
             json={"email": "existing@outlook.com"},

@@ -8,6 +8,8 @@ POST /api/mail/fetch
 
 from __future__ import annotations
 
+from dataclasses import asdict
+
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -23,7 +25,7 @@ from backend.app.services.mail_accounts import (
     MailAccountNotReadyError,
     resolve_or_create_mail_account,
 )
-from backend.app.services.mail_fetchers import MailFetchResult, fetch_mail_for_account
+from backend.app.services.mail_fetchers import fetch_mail_for_account
 from backend.app.services.users import get_user_by_id
 
 router = APIRouter(prefix="/mail", tags=["mail"])
@@ -56,12 +58,12 @@ async def get_optional_user(
     return user
 
 
-@router.post("/fetch", response_model=MailFetchResult)
+@router.post("/fetch")
 async def fetch_mail(
     resolve: MailAccountResolve,
     session: AsyncSession = Depends(get_db_session),
     user: User | None = Depends(get_optional_user),
-) -> MailFetchResult:
+) -> dict:
     """Fetch mail for the given email address.
 
     - First call with valid credentials → account is created (user-owned or public).
@@ -78,7 +80,8 @@ async def fetch_mail(
     cipher = TokenCipher(key=get_settings().token_encryption_key)
     decrypted_token = cipher.decrypt(result.account.refresh_token_encrypted)
 
-    return await fetch_mail_for_account(
+    fetch_result = await fetch_mail_for_account(
         result.account,
         decrypted_token=decrypted_token,
     )
+    return asdict(fetch_result)
