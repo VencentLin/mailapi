@@ -61,6 +61,7 @@ Summary:
 Verification:
 - `python -m pytest tests/backend/test_health.py -v` → 2 passed（test_health_endpoint_returns_service_status、test_db_health_endpoint_reports_configured_database）。
 - `ruff check backend tests/backend` → All checks passed.
+- 复核（Claude，2026-06-13）：`python -m alembic current` → `20260613_0001 (head)`；`uvicorn backend.app.main:app --host 127.0.0.1 --port 8001`（本机 8000 被一个 Django 占用，改用 8001），`curl http://127.0.0.1:8001/api/health/db` → `{"status":"ok","database":"postgresql"}`。
 
 Notes:
 - 真实云数据库验证已由 Codex 补做：用户提供 `DATABASE_URL` 后，先遇到 `permission denied for schema public`，用户修复 schema 权限后迁移成功。
@@ -69,3 +70,4 @@ Notes:
 - 云端 public schema 表已创建：`alembic_version`、`api_keys`、`audit_logs`、`mail_account_claims`、`mail_accounts`、`mail_fetch_logs`、`users`。
 - 发现并修正迁移依赖缺口：Alembic 当前使用同步 PostgreSQL 驱动运行迁移，已将 `psycopg2-binary` 加入 `pyproject.toml`，避免只在本机 `.venv` 临时安装。
 - 未修改 `backend/app/db/session.py`，保留原有 `pool_pre_ping=True` 行为；如果云端 PGSQL 经常断连可后续追加 `pool_recycle`。
+- 新增 `.claude/settings.local.json`（已加入 `.gitignore`）放行 `Bash(python -m alembic*)`，方便后续任务直接跑迁移；该文件是个人本地配置，不会提交。

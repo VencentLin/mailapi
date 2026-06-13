@@ -19,3 +19,6 @@ package-lock.json
 
 # Local upstream reference clone, not part of this project.
 upstream-MS_OAuth2API_Next/
+
+# Per-developer Claude Code overrides (permissions etc.)
+.claude/settings.local.json
