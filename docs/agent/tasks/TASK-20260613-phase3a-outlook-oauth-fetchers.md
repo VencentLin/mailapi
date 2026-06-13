@@ -1,6 +1,6 @@
 # TASK-20260613-phase3a-outlook-oauth-fetchers
 
-Status: TODO
+Status: DONE
 Owner: Claude
 Created by: Codex
 Created at: 2026-06-13
@@ -56,7 +56,21 @@ Created at: 2026-06-13
 
 ## Claude 完成记录
 
-Status:
+Status: DONE
 Summary:
+- 新增 `backend/app/services/mail_fetchers.py` — Graph API 取件服务
+  - MailFetcher: OAuth2 refresh_token 换 access_token → 调用 Microsoft Graph API 取件
+  - MailFetchResult: 结构化结果（success/message_count/raw_messages/error_code）
+  - is_oauth_error: 判断 HTTP 401 是否为 OAuth token 过期
+  - create_fetcher / fetch_mail_for_account: 公共入口函数
+- 新增 `tests/backend/test_mail_fetchers.py` — 7 个测试
+  - 覆盖 create_fetcher 返回类型、is_oauth_error 各种状态码、mock Graph 取件成功/失败
+
 Verification:
+- `ruff check backend tests/backend` — All checks passed
+- `pytest tests/backend -q` — 45 passed
+
 Notes:
+- 当前仅实现 Graph API，IMAP 推迟到 Phase 3B
+- 所有外部 HTTP 调用通过 httpx.AsyncClient，超时 30s
+- 测试使用 unittest.mock 完全 mock 外部 HTTP 调用
