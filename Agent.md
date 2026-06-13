@@ -57,7 +57,7 @@ Claude 负责：
 | TASK-20260613-phase2-auth-backend | DONE | Claude | `docs/agent/tasks/TASK-20260613-phase2-auth-backend.md` |
 | TASK-20260613-phase2-frontend-login-guard | DONE | Claude | `docs/agent/tasks/TASK-20260613-phase2-frontend-login-guard.md` |
 | TASK-20260613-phase2-management-navigation | DONE | Claude | `docs/agent/tasks/TASK-20260613-phase2-management-navigation.md` |
-| TASK-20260613-phase2-user-management | TODO | Claude | `docs/agent/tasks/TASK-20260613-phase2-user-management.md` |
+| TASK-20260613-phase2-user-management | DONE | Claude | `docs/agent/tasks/TASK-20260613-phase2-user-management.md` |
 
 ## 状态约定
 

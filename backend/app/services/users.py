@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.app.core.security import hash_password, verify_password
@@ -40,6 +40,23 @@ async def authenticate_user(
     if user.status != UserStatus.ACTIVE:
         return None
     return user
+
+
+async def list_users(
+    session: AsyncSession,
+    *,
+    offset: int = 0,
+    limit: int = 20,
+) -> list[User]:
+    result = await session.execute(
+        select(User).order_by(User.id.desc()).offset(offset).limit(limit)
+    )
+    return list(result.scalars().all())
+
+
+async def get_user_count(session: AsyncSession) -> int:
+    result = await session.execute(select(func.count(User.id)))
+    return result.scalar_one()
 
 
 async def touch_last_login(session: AsyncSession, user: User) -> None:
