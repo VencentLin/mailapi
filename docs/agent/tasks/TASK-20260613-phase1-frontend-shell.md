@@ -1,6 +1,6 @@
 # TASK-20260613-phase1-frontend-shell
 
-Status: TODO
+Status: DONE
 Owner: Claude
 Created by: Codex
 Created at: 2026-06-13
@@ -46,7 +46,7 @@ Created at: 2026-06-13
 
 ## Claude 完成记录
 
-Status:
-Summary:
-Verification:
-Notes:
+Status: DONE
+Summary: Created Vite + Vue 3 + Element Plus admin shell with login page and dashboard. Downgraded Vite 7→5 and Vue plugin versions for Node.js 20.11.0 compatibility. Build generates frontend/dist/ with index.html.
+Verification: npm install → success (no engine warnings). npm run build → success, dist/index.html generated, 3 output files (index.html, CSS, JS). Commit: 383cb69.
+Notes: Node.js 20.11.0 is below Vite 7's requirement (^20.19.0). Used Vite 5.4 + @vitejs/plugin-vue 5.2 instead. Removed @tsconfig/node22 and @vue/tsconfig dependencies since they require newer Node; wrote tsconfig manually.

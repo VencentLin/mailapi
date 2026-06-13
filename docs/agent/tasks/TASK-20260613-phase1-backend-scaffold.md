@@ -1,6 +1,6 @@
 # TASK-20260613-phase1-backend-scaffold
 
-Status: TODO
+Status: DONE
 Owner: Claude
 Created by: Codex
 Created at: 2026-06-13
@@ -48,7 +48,7 @@ MailAPI 当前只有设计文档，还没有可运行代码。第一步需要建
 
 ## Claude 完成记录
 
-Status:
-Summary:
-Verification:
-Notes:
+Status: DONE
+Summary: Created FastAPI backend scaffold with health endpoint, config module, API router, and SPA fallback. Installed all dependencies and verified with pytest and ruff.
+Verification: pytest tests/backend/test_health.py -v → 1 passed. ruff check backend tests/backend → All checks passed. Commit: ec568fd.
+Notes: LF/CRLF warnings are Windows-only and harmless.

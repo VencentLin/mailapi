@@ -1,6 +1,6 @@
 # TASK-20260613-phase1-db-models-alembic
 
-Status: TODO
+Status: DONE
 Owner: Claude
 Created by: Codex
 Created at: 2026-06-13
@@ -50,7 +50,7 @@ Created at: 2026-06-13
 
 ## Claude 完成记录
 
-Status:
-Summary:
-Verification:
-Notes:
+Status: DONE
+Summary: Created SQLAlchemy models (User, ApiKey, MailAccount, MailAccountClaim, MailFetchLog, AuditLog), enums, async session factory, Alembic config, and first foundation schema migration. Added ruff exclusion for migration versions directory.
+Verification: pytest tests/backend/test_database_metadata.py -v → 2 passed. python -m compileall backend → no errors. pytest tests/backend -v → 3 passed (all). ruff check backend tests/backend → All checks passed. Commit: 63fa94b.
+Notes: Migration file line lengths are auto-generated boilerplate, excluded via ruff per-file-ignores.

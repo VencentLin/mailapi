@@ -1,6 +1,6 @@
 # TASK-20260613-phase1-docs-verification
 
-Status: TODO
+Status: IN_PROGRESS
 Owner: Claude
 Created by: Codex
 Created at: 2026-06-13
