@@ -1,8 +1,6 @@
 # TASK-20260613-phase2-auth-backend
 
-Status: IN_PROGRESS
-Owner: Claude
-Created by: Codex
+Status: DONE
 Created at: 2026-06-13
 
 ## 背景
@@ -94,10 +92,25 @@ Checkpoint 顺序：
 
 ## Claude 完成记录
 
-Status:
+Status: DONE
 Summary:
+- `backend/app/core/security.py`：密码哈希（pwdlib/argon2）、密码校验、JWT 创建（python-jose HS256）和 JWT 解码。
+- `backend/app/core/config.py`：新增 `secret_key`、`access_token_expire_minutes`、`init_admin_*` 三个环境变量配置。
+- `backend/app/api/routes/auth.py`：实现 `POST /auth/login`（返回 JWT）、`GET /auth/me`（返回当前用户）、`get_current_user` 依赖（Bearer token 验证）。
+- `backend/app/schemas/auth.py`：`LoginRequest`、`TokenResponse`、`UserPublic` Pydantic 模型。
+- `backend/app/services/users.py`：`get_user_by_username`、`get_user_by_email`、`get_user_by_id`、`authenticate_user`、`touch_last_login`、`create_user`、`ensure_admin_user`。
+- `backend/app/cli.py`：`python -m backend.app.cli create-admin` 从环境变量初始化管理员。
+- `backend/app/main.py`：注册 auth router。
+- `pyproject.toml`：新增 `pwdlib[argon2]`、`python-jose[cryptography]` 依赖；`aiosqlite`、`pytest-asyncio` dev 依赖；ruff 忽略 API 路由文件 B008。
+- `tests/backend/test_auth.py`：12 个测试（密码哈希 2 + JWT 2 + 登录 4 + /me 3 + last_login 1）。
+- `backend/app/models/user.py`：修复 `User.mail_accounts` 关系的 `foreign_keys` 歧义。
+
 Verification:
+- `python -m pytest tests/backend/test_auth.py -v` → 12 passed
+- `python -m pytest tests/backend -v` → 14 passed（含之前 2 个 health 测试）
+- `python -m ruff check backend tests/backend` → All checks passed
+- `python -m compileall backend` → OK
+
 Notes:
-Checkpoint:
-Next:
-Blocking:
+- 缺少的依赖已在当前 venv 手动安装（pytest-asyncio、pwdlib[argon2]、pydantic-settings、aiosqlite、asyncpg、email-validator）。后续需确保 `pip install -e ".[dev]"` 能工作（当前因 flat-layout 报错未修复，但不阻塞本任务）。
+- `User.mail_accounts` 外键歧义修复：显式指定 `foreign_keys="MailAccount.owner_user_id"`。
