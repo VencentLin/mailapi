@@ -1,0 +1,17 @@
+.venv/
+.idea/
+__pycache__/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+node_modules/
+dist/
+build/
+.env
+.env.*
+!.env.example
+logs/
+*.log
+
+# Local upstream reference clone, not part of this project.
+upstream-MS_OAuth2API_Next/
