@@ -1,7 +1,7 @@
 # TASK-20260613-phase3a-outlook-oauth-fetchers
 
-Status: TODO
-Owner: Claude
+Status: DONE
+Owner: Codex
 Created by: Codex
 Created at: 2026-06-13
 
@@ -88,3 +88,21 @@ Required next steps:
 - 在当前代码基础上补齐本任务验收标准 3、4、5。
 - 按原计划新增或等价拆分 Microsoft OAuth、Graph、IMAP、统一 `mail_fetch` 服务；如果保留 `mail_fetchers.py` 文件名，也必须满足同等接口和测试覆盖。
 - 完成后重新运行 `pytest tests/backend/test_mail_fetchers.py -v`、`pytest tests/backend -v`、`ruff check backend tests/backend`。
+
+## Codex 完成记录
+
+Status: DONE
+Summary:
+- 扩展 `backend/app/services/mail_fetchers.py`，保留现有 wrapper，同时补齐 Microsoft OAuth token provider、Graph fetcher、IMAP XOAUTH2 fallback、统一 `fetch_messages`/`clear_mailbox` 编排。
+- 新增 `generate_xoauth2_string`，符合 Microsoft SASL XOAUTH2 格式。
+- Graph token 无 Mail.Read、Graph 401/403 权限错误时会尝试 IMAP fallback。
+- Graph 和 IMAP 都失败时抛出带 `error_code` 与 `protocol_attempts` 的 `MailFetchError`。
+- 扩展 `tests/backend/test_mail_fetchers.py`，覆盖 XOAUTH2、fallback 和双失败结构化错误。
+
+Verification:
+- `.venv\Scripts\python.exe -m pytest tests/backend/test_mail_fetchers.py -v` — 11 passed
+- `.venv\Scripts\python.exe -m pytest tests/backend -v` — 59 passed
+- `.venv\Scripts\ruff.exe check backend tests/backend` — All checks passed
+
+Notes:
+- 真实 Microsoft 行为仍需 `TASK-20260613-phase3a-real-outlook-verification` 用真实 Outlook 凭据验证。

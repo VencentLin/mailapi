@@ -1,7 +1,7 @@
 # TASK-20260613-phase3a-compatible-mail-api
 
-Status: TODO
-Owner: Claude
+Status: DONE
+Owner: Codex
 Created by: Codex
 Created at: 2026-06-13
 
@@ -90,3 +90,22 @@ Required next steps:
 - 响应必须保留 `code: "200"`，并增加 `trace_id`、`protocol`、`mail_account_status`。
 - 成功和失败都要写入 `mail_fetch_logs`。
 - 完成后重新运行 `pytest tests/backend/test_mail_api.py -v`、`pytest tests/backend -v`、`ruff check backend tests/backend`。
+
+## Codex 完成记录
+
+Status: DONE
+Summary:
+- 保留 `POST /api/mail/fetch`。
+- 新增兼容入口：`GET/POST /api/mail_new`、`GET/POST /api/mail_all`、`GET/POST /api/process-mailbox`。
+- 兼容响应包含 `code`、`data`、`trace_id`、`protocol`、`mail_account_status`。
+- `mail_new` 强制取 1 封；`mail_all` 默认取 50 封；`process-mailbox` 调用清空逻辑。
+- 新增 `backend/app/services/mail_fetch_logs.py`，成功和失败都写入 `mail_fetch_logs`。
+- 扩展 `tests/backend/test_mail_api.py`，覆盖匿名公共池、认证用户私有托管、已托管邮箱无凭据取件、失败日志和清空邮箱日志。
+
+Verification:
+- `.venv\Scripts\python.exe -m pytest tests/backend/test_mail_api.py -v` — 10 passed
+- `.venv\Scripts\python.exe -m pytest tests/backend -v` — 59 passed
+- `.venv\Scripts\ruff.exe check backend tests/backend` — All checks passed
+
+Notes:
+- 旧接口和新 `/api/mail/fetch` 可并存。

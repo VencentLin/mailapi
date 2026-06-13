@@ -94,6 +94,33 @@ Python 编译检查：
 python -m compileall backend
 ```
 
+## Outlook OAuth2 取件 API
+
+兼容接口：
+
+- `POST /api/mail_new`：获取最新邮件。
+- `POST /api/mail_all`：获取邮件列表。
+- `POST /api/process-mailbox`：清空指定邮箱文件夹。
+
+这些接口也支持 GET 参数。参数名保留旧项目习惯：
+
+```json
+{
+  "email": "your-outlook@example.com",
+  "client_id": "microsoft-client-id",
+  "refresh_token": "microsoft-refresh-token",
+  "mailbox": "INBOX"
+}
+```
+
+首次调用时，如果带用户 Bearer token，会自动托管到该用户；如果不带 token，会自动托管到公共池。邮箱已托管后，再次调用可只传 `email` 和 `mailbox`，系统会使用数据库里的加密凭据。
+
+真实 Outlook 验证见：
+
+```text
+docs/manual-testing/outlook-oauth-fetch.zh-CN.md
+```
+
 ## 服务器 Docker 部署
 
 本机没有 Docker 时可以跳过这一节。等开发完成后，在服务器或有 Docker 的机器上执行：
