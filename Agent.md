@@ -53,7 +53,7 @@ Claude 负责：
 
 | ID | 状态 | 负责人 | 任务文件 |
 |---|---|---|---|
-| TASK-20260613-phase3a-token-crypto-test-foundation | TODO | Claude | `docs/agent/tasks/TASK-20260613-phase3a-token-crypto-test-foundation.md` |
+| TASK-20260613-phase3a-token-crypto-test-foundation | DONE | Claude | `docs/agent/tasks/TASK-20260613-phase3a-token-crypto-test-foundation.md` |
 | TASK-20260613-phase3a-mail-account-ownership | TODO | Claude | `docs/agent/tasks/TASK-20260613-phase3a-mail-account-ownership.md` |
 | TASK-20260613-phase3a-outlook-oauth-fetchers | TODO | Claude | `docs/agent/tasks/TASK-20260613-phase3a-outlook-oauth-fetchers.md` |
 | TASK-20260613-phase3a-compatible-mail-api | TODO | Claude | `docs/agent/tasks/TASK-20260613-phase3a-compatible-mail-api.md` |

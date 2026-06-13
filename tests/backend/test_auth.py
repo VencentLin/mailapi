@@ -1,10 +1,7 @@
 from __future__ import annotations
 
 import pytest
-import pytest_asyncio
-from httpx import ASGITransport, AsyncClient
 from sqlalchemy import text
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from backend.app.core.security import (
     create_access_token,
@@ -12,16 +9,6 @@ from backend.app.core.security import (
     hash_password,
     verify_password,
 )
-from backend.app.db.session import get_db_session
-from backend.app.main import create_app
-from backend.app.models import (  # noqa: F401
-    ApiKey,
-    AuditLog,
-    MailAccount,
-    MailAccountClaim,
-    MailFetchLog,
-)
-from backend.app.models.base import Base
 from backend.app.models.enums import UserRole, UserStatus
 from backend.app.services.users import create_user
 
@@ -60,44 +47,7 @@ def test_decode_tampered_token_raises():
 
 
 # ---------------------------------------------------------------------------
-# test infrastructure (async SQLite via aiosqlite)
-# ---------------------------------------------------------------------------
-
-TEST_DATABASE_URL = "sqlite+aiosqlite://"
-
-
-@pytest_asyncio.fixture
-async def test_engine():
-    engine = create_async_engine(TEST_DATABASE_URL)
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-    yield engine
-    await engine.dispose()
-
-
-@pytest_asyncio.fixture
-async def test_session(test_engine) -> AsyncSession:
-    async_session = async_sessionmaker(test_engine, expire_on_commit=False)
-    async with async_session() as session:
-        yield session
-
-
-@pytest_asyncio.fixture
-async def client(test_session):
-    """Override `get_db_session` with the test SQLite session."""
-    app = create_app()
-
-    async def override_get_db_session():
-        yield test_session
-
-    app.dependency_overrides[get_db_session] = override_get_db_session
-    transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://test") as ac:
-        yield ac
-
-
-# ---------------------------------------------------------------------------
-# auth endpoint tests
+# auth endpoint tests (fixtures from conftest.py)
 # ---------------------------------------------------------------------------
 
 

@@ -12,6 +12,7 @@ class Settings(BaseSettings):
     redis_url: str = "redis://localhost:6379/0"
     run_migrations: bool = False
     secret_key: str = "change-me"
+    token_encryption_key: str = "change-me-encryption-key"
     access_token_expire_minutes: int = 60 * 24
     init_admin_username: str | None = None
     init_admin_password: str | None = None
