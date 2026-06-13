@@ -19,4 +19,8 @@ class User(TimestampMixin, Base):
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     api_keys = relationship("ApiKey", back_populates="user")
-    mail_accounts = relationship("MailAccount", back_populates="owner_user")
+    mail_accounts = relationship(
+        "MailAccount",
+        foreign_keys="MailAccount.owner_user_id",
+        back_populates="owner_user",
+    )

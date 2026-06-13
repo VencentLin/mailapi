@@ -6,10 +6,12 @@ requires-python = ">=3.12"
 dependencies = [
   "alembic>=1.16.0",
   "asyncpg>=0.30.0",
+  "email-validator>=2.2.0",
   "fastapi>=0.115.0",
   "greenlet>=3.1.0",
   "httpx>=0.28.0",
   "psycopg2-binary>=2.9.12",
+  "pwdlib[argon2]>=0.2.1",
   "pydantic-settings>=2.7.0",
   "python-jose[cryptography]>=3.3.0",
   "redis>=5.2.0",
@@ -19,6 +21,7 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
+  "aiosqlite>=0.20.0",
   "pytest>=8.3.0",
   "pytest-asyncio>=0.25.0",
   "ruff>=0.8.0",
@@ -37,4 +40,5 @@ target-version = "py312"
 select = ["E", "F", "I", "UP", "B"]
 
 [tool.ruff.lint.per-file-ignores]
+"backend/app/api/routes/*" = ["B008"]
 "backend/migrations/versions/*" = ["E501"]
