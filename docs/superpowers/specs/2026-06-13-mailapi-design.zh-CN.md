@@ -507,6 +507,14 @@ OAuth2、Graph、IMAP 失败时，必须写入 `mail_fetch_logs`。
 
 ## 部署
 
+本机开发和服务器部署分开处理：
+
+- 本机开发不要求 Docker。
+- 本机直接运行 FastAPI 后端和 Vite 前端。
+- 本机需要数据库时，通过 `DATABASE_URL` 连接云端 PostgreSQL。
+- Redis 相关功能在本机开发时可连接本机/远程 Redis；没有 Redis 时，当前任务需要明确说明哪些验证被跳过。
+- 最终上线时再构建 Docker 镜像部署到服务器。
+
 最终部署产物是一个 Docker 镜像。
 
 镜像包含：

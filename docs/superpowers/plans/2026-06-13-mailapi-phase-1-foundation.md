@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Build the runnable project foundation: FastAPI backend, PostgreSQL/Alembic schema baseline, Vue admin shell, one Docker image with internal Redis, and repeatable verification commands.
+**Goal:** Build the runnable local-development foundation plus the final server Docker deployment artifact: FastAPI backend, PostgreSQL/Alembic schema baseline, Vue admin shell, Docker image definition with internal Redis, and repeatable verification commands.
 
-**Architecture:** Use a monorepo with `backend/` for FastAPI and `frontend/` for Vue. FastAPI owns API routes and serves the built Vue `dist` in production. Redis runs inside the Docker container for cache/short-lived state, while PostgreSQL remains an external cloud database.
+**Architecture:** Use a monorepo with `backend/` for FastAPI and `frontend/` for Vue. Local development runs FastAPI and Vite directly on the host without Docker. FastAPI owns API routes and serves the built Vue `dist` in production; Redis runs inside the final Docker container for cache/short-lived state, while PostgreSQL remains an external cloud database.
 
 **Tech Stack:** Python 3.12, FastAPI, SQLAlchemy 2.x async, Alembic, asyncpg, Redis, pytest, Vue 3, Vite, Element Plus, Pinia, Docker.
 
@@ -18,7 +18,8 @@ Phase 1 is complete when:
 
 - Backend imports and health endpoint work.
 - Database models and Alembic baseline exist.
-- Docker image can start Redis and FastAPI from one container.
+- Local backend and frontend commands are documented and runnable without Docker.
+- Dockerfile and entrypoint exist for final server deployment; Docker build is verified only on a machine where Docker is available.
 - Vue admin shell builds and can be served by FastAPI.
 - Verification commands are documented and runnable.
 
@@ -1432,47 +1433,84 @@ Create `README.md`:
 ```md
 # MailAPI
 
-MailAPI is an Outlook OAuth2 verification-code mail retrieval platform.
+MailAPI 是一个面向 Outlook OAuth2 邮箱的验证码取件平台。
 
-## Phase 1 Local Checks
+## 开发和部署约定
 
-Install backend dependencies:
+- **本机开发不使用 Docker**：直接启动 FastAPI 后端和 Vite 前端，方便调试。
+- **最终部署再打包 Docker**：开发完成后，在服务器或有 Docker 的环境构建镜像；镜像内包含后端、前端静态文件和 Redis。
+- **PostgreSQL 使用云端数据库**：本机开发和服务器部署都通过 `DATABASE_URL` 连接外部 PGSQL。
+
+## 本机开发
+
+安装后端依赖：
 
 ```bash
 pip install -e ".[dev]"
 ```
 
-Run backend tests:
+准备环境变量：
+
+```bash
+copy .env.example .env
+```
+
+按实际情况修改 `.env` 里的 `DATABASE_URL`。第一阶段健康检查和基础测试不会连接真实数据库。
+
+启动后端：
+
+```bash
+uvicorn backend.app.main:app --reload --host 127.0.0.1 --port 8000
+```
+
+安装并启动前端：
+
+```bash
+cd frontend
+npm install
+npm run dev -- --host 127.0.0.1 --port 5173
+```
+
+打开：
+
+- 后端健康检查：`http://127.0.0.1:8000/api/health`
+- 前端开发服务：`http://127.0.0.1:5173/`
+
+## 本机验证
+
+后端测试：
 
 ```bash
 pytest tests/backend -v
 ruff check backend tests/backend
 ```
 
-Build frontend:
+前端构建：
 
 ```bash
 cd frontend
-npm install
 npm run build
 ```
 
-Build Docker image:
+Python 编译检查：
 
 ```bash
-docker build -t mailapi:phase1 .
+python -m compileall backend
 ```
 
-Run container:
+## 服务器 Docker 部署
+
+本机没有 Docker 时可以跳过这一节。等开发完成后，在服务器或有 Docker 的机器上执行：
 
 ```bash
-docker run --rm -p 8000:8000 --env-file .env mailapi:phase1
+docker build -t mailapi:latest .
+docker run -d -p 8000:8000 --env-file .env --name mailapi mailapi:latest
 ```
 
-Open:
+打开：
 
-- `http://localhost:8000/api/health`
-- `http://localhost:8000/`
+- `http://服务器IP:8000/api/health`
+- `http://服务器IP:8000/`
 ```
 
 - [ ] **Step 2: Update `Agent.md` after task completion**
@@ -1495,7 +1533,7 @@ cd ..
 python -m compileall backend
 ```
 
-If Docker is available:
+Docker is not required for local development. If Docker is available on this machine or a server, run:
 
 ```bash
 docker build -t mailapi:phase1 .
@@ -1507,7 +1545,7 @@ Expected:
 - Ruff reports no errors.
 - Frontend build succeeds.
 - Python compileall succeeds.
-- Docker image builds when Docker is available.
+- Docker image builds when Docker is available; if Docker is not installed locally, record that Docker deployment verification was skipped and should be done on the server.
 
 - [ ] **Step 4: Commit**
 
@@ -1524,7 +1562,8 @@ Spec coverage for Phase 1:
 
 - FastAPI backend foundation: Task 1.
 - PostgreSQL/Alembic foundation: Task 2.
-- One Docker image with internal Redis: Task 3.
+- Local non-Docker development workflow: Task 5.
+- One Docker image with internal Redis for final server deployment: Task 3.
 - Vue frontend shell served by backend: Task 4.
 - Verification and handoff docs: Task 5.
 

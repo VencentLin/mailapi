@@ -507,6 +507,14 @@ OAuth2, Graph, and IMAP failures must write a `mail_fetch_logs` row.
 
 ## Deployment
 
+Local development and server deployment are separate:
+
+- Local development does not require Docker.
+- Developers run FastAPI and Vite directly on the host.
+- When local development needs a database, it connects to the cloud PostgreSQL through `DATABASE_URL`.
+- Redis-backed features can use a local or remote Redis during development; when Redis is unavailable, the task completion notes must state which checks were skipped.
+- Docker is built only for final server deployment or verification on a machine that has Docker.
+
 The final deployment artifact is one Docker image.
 
 The image contains:
@@ -610,4 +618,3 @@ Recommended order:
 11. Add tests and deployment verification.
 
 The first implementation milestone should prove the Outlook OAuth2 core path works before polishing the full frontend.
-

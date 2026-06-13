@@ -4,6 +4,8 @@ This project uses lightweight version control with clear commits. PRs are option
 
 Task coordination between Codex and Claude is defined in `Agent.md`. Use that file as the entry point for active tasks and handoff records.
 
+Local development does not require Docker. Claude should run backend, frontend, and test commands directly on the host; Docker is reserved for final server deployment and should be verified only on a machine where Docker is available.
+
 ## Rules For Claude Implementation
 
 Claude can work directly in the local repository, but each task must leave a clean, reviewable commit.

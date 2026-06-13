@@ -27,6 +27,7 @@ Claude 负责：
 - Claude 不要默认读取归档历史；只有需要追溯旧决策时再看 `docs/agent/archive/`。
 - Claude 不要猜测用户意图；需求、凭据、部署环境或验收标准不清楚时，标记 `BLOCKED` 并说明缺口。
 - 涉及 Outlook OAuth2、权限、token 加密、数据库迁移、Docker 部署的改动必须重点写清验证过程。
+- 本机开发默认不使用 Docker；Claude 应直接运行 FastAPI、Vite、pytest、ruff 等本机命令。Docker 只用于最终服务器部署打包。
 
 ## Claude 读取顺序
 
