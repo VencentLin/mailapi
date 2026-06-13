@@ -4,6 +4,14 @@
       <h2>API 使用说明</h2>
     </header>
 
+    <section class="ai-tool-guide">
+      <div class="guide-header">
+        <h3>AI 工具说明</h3>
+        <p>复制下面整段发给自动化 AI，让它知道如何调用 MailAPI。</p>
+      </div>
+      <CodeBlock :code="aiToolGuide" />
+    </section>
+
     <el-collapse v-model="activePanels">
       <el-collapse-item title="认证方式" name="auth">
         <p>推荐在 API Key 页面创建 Key，并通过请求头传入。</p>
@@ -82,6 +90,100 @@ const CodeBlock = defineComponent({
   },
 })
 
+const aiToolGuide = String.raw`# MailAPI 给 AI 自动化脚本的工具说明
+
+你的任务：
+当自动化流程需要读取 Outlook 邮件、查看全部邮件、提取邮箱验证码、托管邮箱或清空邮箱时，调用 MailAPI。不要猜接口，不要直接登录邮箱网页，不要在日志里打印 API Key、Authorization、refresh_token 或密码。
+
+基础配置：
+- MAILAPI_BASE_URL：MailAPI 服务地址，例如 http://127.0.0.1:8000 或云端地址。
+- MAILAPI_API_KEY：在 MailAPI 前端的 API Key 页面创建，格式通常是 mailapi_xxx。
+- 所有接口路径都以 /api 开头。
+- 优先使用 POST JSON；兼容取件接口也支持 GET query。
+
+认证规则：
+- 自动化取件优先用请求头：Authorization: Bearer {MAILAPI_API_KEY}
+- 如果调用环境不能设置请求头，可在 JSON body 里传 user_token: "{MAILAPI_API_KEY}"。
+- 管理类接口使用网页登录 JWT：先 POST /api/auth/login 获取 access_token，再用 Authorization: Bearer {access_token}。
+- 邮箱已托管时，取件请求只需要 email 和 mailbox。邮箱未托管时，需要额外传 client_id 和 refresh_token；如果传入 API Key/user_token，会自动托管到该用户，否则托管到公共账户。
+
+核心取件 API：
+
+1. 获取验证码
+POST /api/verification-code
+用途：从邮箱最新邮件中筛选并提取验证码。
+请求体：
+{
+  "email": "your-outlook@example.com",
+  "mailbox": "INBOX",
+  "sender": "可选，发件人关键词",
+  "subject_keyword": "可选，标题关键词",
+  "body_keyword": "可选，正文关键词",
+  "since_minutes": 10,
+  "limit": 20,
+  "regex": "(?<!\\d)\\d{4,8}(?!\\d)",
+  "delete_after_fetch": false
+}
+成功返回 code = "200"，验证码字段是 verification_code。
+如果返回 404 且 error_code = "VERIFICATION_CODE_NOT_FOUND"，等待 5 秒后重试，最多重试 90 秒。
+如果返回 401/403，检查 API Key 或 JWT。返回 502 时记录 trace_id 方便排查。
+
+2. 获取最新一封邮件
+POST /api/mail_new
+请求体：
+{
+  "email": "your-outlook@example.com",
+  "mailbox": "INBOX"
+}
+成功返回 code = "200"，data 是邮件数组，最多 1 封。邮件字段包含 id、sender/send、subject、text、html、received_at/date、verification_code。
+
+3. 获取邮件列表
+POST /api/mail_all
+请求体：
+{
+  "email": "your-outlook@example.com",
+  "mailbox": "INBOX",
+  "limit": 10
+}
+成功返回 code = "200"，data 是邮件数组。
+
+4. 清空邮箱
+POST /api/process-mailbox
+请求体：
+{
+  "email": "your-outlook@example.com",
+  "mailbox": "INBOX"
+}
+注意：这是危险操作，会删除指定邮箱文件夹内邮件。除非用户明确要求清空，否则不要调用。
+
+邮箱托管和管理 API：
+- POST /api/mail-accounts/import：批量导入邮箱，JWT 登录后使用。每行格式：邮箱----密码----客户端ID----刷新令牌。密码字段仅兼容格式，不保存。
+- GET /api/mail-accounts：查看邮箱列表，可筛选 owner_user_id、owner_type、email、status、limit。
+- POST /api/mail-accounts：新增托管邮箱。
+- GET /api/mail-accounts/{account_id}：查看单个邮箱。
+- PATCH /api/mail-accounts/{account_id}：修改归属、状态、备注等。
+- DELETE /api/mail-accounts/{account_id}：删除托管邮箱。
+- POST /api/mail-accounts/{account_id}/claim：认领公共邮箱。
+- GET /api/mail-accounts/{account_id}/credentials：查看 client_id 和 refresh_token，通常仅管理员或有权限用户可用。
+- PATCH /api/mail-accounts/{account_id}/credentials：修改 client_id 或 refresh_token。
+- POST /api/mail-accounts/{account_id}/test-fetch?mailbox=INBOX：测试取件。
+- POST /api/mail-accounts/{account_id}/clear?mailbox=INBOX：清空该邮箱文件夹，危险操作。
+
+用户、API Key、日志和系统 API：
+- POST /api/auth/login：网页登录，body 为 username 和 password，返回 access_token。
+- GET /api/auth/me：查看当前 JWT 用户。
+- GET /api/users、POST /api/users：管理员查看/创建用户。
+- GET /api/api-keys、POST /api/api-keys、PATCH /api/api-keys/{id}、DELETE /api/api-keys/{id}：管理 API Key。
+- GET /api/logs/mail-fetch：查看取件日志，可筛选 email、status、user_id、limit。
+- GET /api/logs/audit：查看审计日志，管理员接口。
+- GET /api/dashboard：仪表盘统计。
+- GET /api/health、GET /api/health/db：健康检查。
+
+自动化脚本建议：
+- 封装一个 get_email_code(email, sender=None, subject_keyword=None, body_keyword=None) 函数，内部调用 /api/verification-code 并按 404 轮询。
+- 只把 verification_code 填入网页验证码输入框，不要把完整邮件正文、refresh_token 或 API Key 输出给用户界面。
+- 优先使用已经托管的邮箱；只有用户明确提供 client_id 和 refresh_token 时才在请求中传临时凭据。`
+
 const authExample = `Invoke-RestMethod \`
   -Method Post \`
   -Uri "http://127.0.0.1:8000/api/mail_new" \`
@@ -155,6 +257,25 @@ const clearExample = `POST /api/process-mailbox
   color: #1f2933;
   font-size: 20px;
   font-weight: 650;
+}
+
+.ai-tool-guide {
+  margin-bottom: 18px;
+}
+
+.guide-header {
+  margin-bottom: 10px;
+}
+
+.guide-header h3 {
+  margin: 0 0 4px;
+  color: #1f2933;
+  font-size: 16px;
+  font-weight: 650;
+}
+
+.guide-header p {
+  margin-bottom: 0;
 }
 
 p {
