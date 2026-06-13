@@ -53,11 +53,11 @@ Claude 负责：
 
 | ID | 状态 | 负责人 | 任务文件 |
 |---|---|---|---|
-| TASK-20260613-phase2-cloud-db-config | DONE | Claude | `docs/agent/tasks/TASK-20260613-phase2-cloud-db-config.md` |
-| TASK-20260613-phase2-auth-backend | DONE | Claude | `docs/agent/tasks/TASK-20260613-phase2-auth-backend.md` |
-| TASK-20260613-phase2-frontend-login-guard | DONE | Claude | `docs/agent/tasks/TASK-20260613-phase2-frontend-login-guard.md` |
-| TASK-20260613-phase2-management-navigation | DONE | Claude | `docs/agent/tasks/TASK-20260613-phase2-management-navigation.md` |
-| TASK-20260613-phase2-user-management | DONE | Claude | `docs/agent/tasks/TASK-20260613-phase2-user-management.md` |
+| TASK-20260613-phase3a-token-crypto-test-foundation | TODO | Claude | `docs/agent/tasks/TASK-20260613-phase3a-token-crypto-test-foundation.md` |
+| TASK-20260613-phase3a-mail-account-ownership | TODO | Claude | `docs/agent/tasks/TASK-20260613-phase3a-mail-account-ownership.md` |
+| TASK-20260613-phase3a-outlook-oauth-fetchers | TODO | Claude | `docs/agent/tasks/TASK-20260613-phase3a-outlook-oauth-fetchers.md` |
+| TASK-20260613-phase3a-compatible-mail-api | TODO | Claude | `docs/agent/tasks/TASK-20260613-phase3a-compatible-mail-api.md` |
+| TASK-20260613-phase3a-real-outlook-verification | TODO | Claude | `docs/agent/tasks/TASK-20260613-phase3a-real-outlook-verification.md` |
 
 ## 状态约定
 
