@@ -2,7 +2,7 @@
   <main class="dashboard">
     <header class="topbar">
       <h1>MailAPI 控制台</h1>
-      <el-button>退出</el-button>
+      <el-button @click="handleLogout">退出</el-button>
     </header>
 
     <section class="metrics">
@@ -25,6 +25,20 @@
     </section>
   </main>
 </template>
+
+<script setup lang="ts">
+import { useRouter } from 'vue-router'
+
+import { useAuthStore } from '@/stores/auth'
+
+const router = useRouter()
+const auth = useAuthStore()
+
+function handleLogout() {
+  auth.logout()
+  router.push({ name: 'login' })
+}
+</script>
 
 <style scoped>
 .dashboard {

@@ -1,6 +1,6 @@
 # TASK-20260613-phase2-frontend-login-guard
 
-Status: TODO
+Status: IN_PROGRESS
 Owner: Claude
 Created by: Codex
 Created at: 2026-06-13
