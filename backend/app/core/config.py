@@ -18,6 +18,12 @@ class Settings(BaseSettings):
     init_admin_password: str | None = None
     init_admin_email: str | None = None
     frontend_dist_dir: Path = Path(__file__).resolve().parents[3] / "frontend" / "dist"
+    microsoft_oauth_client_id: str | None = None
+    microsoft_oauth_client_secret: str | None = None
+    microsoft_oauth_redirect_uri: str | None = None
+    microsoft_oauth_scopes: str = "offline_access User.Read Mail.Read"
+    microsoft_oauth_tenant: str = "consumers"
+    microsoft_oauth_prompt: str = "select_account"
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 

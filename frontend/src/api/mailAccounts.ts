@@ -68,6 +68,11 @@ export interface MailAccountTestResponse {
   trace_id: string
 }
 
+export interface MailAccountReauthorizeUrlResponse {
+  auth_url: string
+  expires_in: number
+}
+
 export interface MailAccountFilters {
   email?: string
   owner_type?: MailAccountOwnerType | ''
@@ -111,6 +116,12 @@ export function fetchMailAccountCredentials(id: number) {
 
 export function updateMailAccountCredentials(id: number, payload: Partial<MailAccountCredentials>) {
   return http.patch<MailAccount>(`/api/mail-accounts/${id}/credentials`, payload)
+}
+
+export function createMailAccountReauthorizeUrl(id: number) {
+  return http.post<MailAccountReauthorizeUrlResponse>(
+    `/api/mail-accounts/${id}/reauthorize-url`,
+  )
 }
 
 export function testFetchMailAccount(id: number, mailbox = 'INBOX') {

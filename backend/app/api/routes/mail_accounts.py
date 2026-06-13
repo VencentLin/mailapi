@@ -26,12 +26,14 @@ from backend.app.schemas.mail_accounts import (
     MailAccountImportRequest,
     MailAccountImportResponse,
     MailAccountPublic,
+    MailAccountReauthorizeUrlResponse,
     MailAccountTestFetchResponse,
     MailAccountUpdate,
 )
 from backend.app.services.audit_logs import write_audit_log
 from backend.app.services.mail_fetch_logs import write_mail_fetch_log
 from backend.app.services.mail_fetchers import MailCredentials, clear_mailbox, fetch_messages
+from backend.app.services.microsoft_oauth import MicrosoftOAuthConfigError, build_reauthorize_url
 
 router = APIRouter(prefix="/mail-accounts", tags=["mail-accounts"])
 email_adapter = TypeAdapter(EmailStr)
@@ -314,6 +316,30 @@ async def import_mail_accounts(
         skipped=skipped,
         failed=failed,
         items=items,
+    )
+
+
+@router.post("/{account_id}/reauthorize-url", response_model=MailAccountReauthorizeUrlResponse)
+async def create_mail_account_reauthorize_url(
+    account_id: int,
+    session: AsyncSession = Depends(get_db_session),
+    current_user: User = Depends(get_current_user),
+) -> MailAccountReauthorizeUrlResponse:
+    account = await _get_manageable_account(session, account_id, current_user)
+    try:
+        result = build_reauthorize_url(
+            account_id=account.id,
+            user_id=current_user.id,
+            login_hint=account.email,
+        )
+    except MicrosoftOAuthConfigError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=str(exc),
+        ) from exc
+    return MailAccountReauthorizeUrlResponse(
+        auth_url=result.auth_url,
+        expires_in=result.expires_in,
     )
 
 

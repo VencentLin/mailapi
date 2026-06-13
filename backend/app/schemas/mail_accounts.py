@@ -93,6 +93,11 @@ class MailAccountCredentialsUpdate(BaseModel):
     refresh_token: str | None = Field(default=None, min_length=1)
 
 
+class MailAccountReauthorizeUrlResponse(BaseModel):
+    auth_url: str
+    expires_in: int
+
+
 class MailAccountTestFetchResponse(BaseModel):
     code: str = "200"
     protocol: str

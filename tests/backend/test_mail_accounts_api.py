@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
+from urllib.parse import parse_qs, quote, urlparse
 
 import pytest
 from httpx import AsyncClient
@@ -13,6 +15,19 @@ from backend.app.models.enums import MailAccountOwnerType, MailAccountStatus, Us
 from backend.app.models.logs import AuditLog, MailAccountClaim, MailFetchLog
 from backend.app.models.mail_account import MailAccount
 from backend.app.services.users import create_user
+
+
+def _configure_microsoft_oauth(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("MICROSOFT_OAUTH_CLIENT_ID", "mailapi-client-id")
+    monkeypatch.delenv("MICROSOFT_OAUTH_CLIENT_SECRET", raising=False)
+    monkeypatch.setenv(
+        "MICROSOFT_OAUTH_REDIRECT_URI",
+        "https://mailapi.example.com/api/oauth/microsoft/callback",
+    )
+    monkeypatch.setenv("MICROSOFT_OAUTH_SCOPES", "offline_access User.Read Mail.Read")
+    monkeypatch.setenv("MICROSOFT_OAUTH_TENANT", "consumers")
+    monkeypatch.setenv("MICROSOFT_OAUTH_PROMPT", "select_account")
+    get_settings.cache_clear()
 
 
 async def _login_as(
@@ -426,3 +441,161 @@ async def test_admin_can_import_mail_accounts_to_public_pool(
     assert account.owner_type == MailAccountOwnerType.PUBLIC
     assert account.owner_user_id is None
     assert account.created_via == "admin_import"
+
+
+@pytest.mark.asyncio
+async def test_user_can_create_reauthorize_url_for_own_mail_account(
+    client: AsyncClient,
+    test_session: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    _configure_microsoft_oauth(monkeypatch)
+    user_id, token = await _login_as(client, test_session, "reauthowner", UserRole.USER)
+    account = await _create_account(
+        test_session,
+        email="reauth-owner@outlook.com",
+        owner_type=MailAccountOwnerType.USER,
+        owner_user_id=user_id,
+    )
+
+    resp = await client.post(
+        f"/api/mail-accounts/{account.id}/reauthorize-url",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["expires_in"] == 600
+    parsed = urlparse(body["auth_url"])
+    params = parse_qs(parsed.query)
+    assert parsed.scheme == "https"
+    assert parsed.netloc == "login.microsoftonline.com"
+    assert parsed.path == "/consumers/oauth2/v2.0/authorize"
+    assert params["client_id"] == ["mailapi-client-id"]
+    assert params["response_type"] == ["code"]
+    assert params["redirect_uri"] == [
+        "https://mailapi.example.com/api/oauth/microsoft/callback"
+    ]
+    assert params["response_mode"] == ["query"]
+    assert params["scope"] == ["offline_access User.Read Mail.Read"]
+    assert params["login_hint"] == ["reauth-owner@outlook.com"]
+    assert params["prompt"] == ["select_account"]
+    assert params["state"][0]
+
+
+@pytest.mark.asyncio
+async def test_microsoft_callback_updates_mail_account_refresh_token(
+    client: AsyncClient,
+    test_session: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    _configure_microsoft_oauth(monkeypatch)
+    user_id, token = await _login_as(client, test_session, "reauthcallback", UserRole.USER)
+    account = await _create_account(
+        test_session,
+        email="reauth-callback@outlook.com",
+        owner_type=MailAccountOwnerType.USER,
+        owner_user_id=user_id,
+        refresh_token="old-refresh",
+    )
+    account.status = MailAccountStatus.INVALID
+    account.last_error_code = "oauth_invalid_grant"
+    await test_session.commit()
+
+    url_resp = await client.post(
+        f"/api/mail-accounts/{account.id}/reauthorize-url",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert url_resp.status_code == 200
+    state = parse_qs(urlparse(url_resp.json()["auth_url"]).query)["state"][0]
+
+    with (
+        patch(
+            "backend.app.api.routes.oauth.MicrosoftOAuthClient.exchange_code",
+            new=AsyncMock(
+                return_value=SimpleNamespace(
+                    access_token="new-access-token",
+                    refresh_token="new-refresh-token",
+                )
+            ),
+        ),
+        patch(
+            "backend.app.api.routes.oauth.MicrosoftOAuthClient.fetch_profile_email",
+            new=AsyncMock(return_value="reauth-callback@outlook.com"),
+        ),
+    ):
+        callback_resp = await client.get(
+            f"/api/oauth/microsoft/callback?code=auth-code&state={quote(state, safe='')}",
+            follow_redirects=False,
+        )
+
+    assert callback_resp.status_code in {302, 307}
+    assert callback_resp.headers["location"].startswith(
+        "/mail-accounts?reauthorize=success&email=reauth-callback%40outlook.com"
+    )
+
+    refreshed = await test_session.get(MailAccount, account.id)
+    assert refreshed is not None
+    assert refreshed.client_id == "mailapi-client-id"
+    assert refreshed.status == MailAccountStatus.ACTIVE
+    assert refreshed.last_error_code is None
+    cipher = TokenCipher(key=get_settings().token_encryption_key)
+    assert cipher.decrypt(refreshed.refresh_token_encrypted) == "new-refresh-token"
+
+    audit = (await test_session.execute(select(AuditLog))).scalar_one()
+    assert audit.action == "mail_account.credentials.reauthorize"
+    assert audit.actor_user_id == user_id
+    assert audit.target_id == str(account.id)
+
+
+@pytest.mark.asyncio
+async def test_microsoft_callback_rejects_mismatched_profile_email(
+    client: AsyncClient,
+    test_session: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    _configure_microsoft_oauth(monkeypatch)
+    user_id, token = await _login_as(client, test_session, "reauthmismatch", UserRole.USER)
+    account = await _create_account(
+        test_session,
+        email="expected-mailbox@outlook.com",
+        owner_type=MailAccountOwnerType.USER,
+        owner_user_id=user_id,
+        refresh_token="old-refresh",
+    )
+    url_resp = await client.post(
+        f"/api/mail-accounts/{account.id}/reauthorize-url",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert url_resp.status_code == 200
+    state = parse_qs(urlparse(url_resp.json()["auth_url"]).query)["state"][0]
+
+    with (
+        patch(
+            "backend.app.api.routes.oauth.MicrosoftOAuthClient.exchange_code",
+            new=AsyncMock(
+                return_value=SimpleNamespace(
+                    access_token="new-access-token",
+                    refresh_token="wrong-mailbox-refresh",
+                )
+            ),
+        ),
+        patch(
+            "backend.app.api.routes.oauth.MicrosoftOAuthClient.fetch_profile_email",
+            new=AsyncMock(return_value="other-mailbox@outlook.com"),
+        ),
+    ):
+        callback_resp = await client.get(
+            f"/api/oauth/microsoft/callback?code=auth-code&state={quote(state, safe='')}",
+            follow_redirects=False,
+        )
+
+    assert callback_resp.status_code in {302, 307}
+    assert callback_resp.headers["location"].startswith(
+        "/mail-accounts?reauthorize=failed&reason=email_mismatch"
+    )
+
+    refreshed = await test_session.get(MailAccount, account.id)
+    assert refreshed is not None
+    cipher = TokenCipher(key=get_settings().token_encryption_key)
+    assert cipher.decrypt(refreshed.refresh_token_encrypted) == "old-refresh"

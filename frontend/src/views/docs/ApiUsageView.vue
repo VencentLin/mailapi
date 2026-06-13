@@ -40,6 +40,11 @@
         <CodeBlock :code="importExample" />
       </el-collapse-item>
 
+      <el-collapse-item title="重新授权邮箱" name="reauthorize">
+        <p>凭据失效时，在邮箱管理页面点击“重新授权”。系统会生成 Microsoft 授权链接，回调成功后自动更新 refresh token。</p>
+        <CodeBlock :code="reauthorizeExample" />
+      </el-collapse-item>
+
       <el-collapse-item title="清空邮箱夹" name="clear">
         <el-alert
           title="这个接口会删除指定邮箱夹内的邮件，手动测试前请确认邮箱内容可以清空。"
@@ -166,6 +171,8 @@ POST /api/process-mailbox
 - POST /api/mail-accounts/{account_id}/claim：认领公共邮箱。
 - GET /api/mail-accounts/{account_id}/credentials：查看 client_id 和 refresh_token，通常仅管理员或有权限用户可用。
 - PATCH /api/mail-accounts/{account_id}/credentials：修改 client_id 或 refresh_token。
+- POST /api/mail-accounts/{account_id}/reauthorize-url：生成 Microsoft 重新授权链接，凭据失效时使用。
+- GET /api/oauth/microsoft/callback：Microsoft 授权码回调，成功后自动更新该邮箱的 refresh_token。
 - POST /api/mail-accounts/{account_id}/test-fetch?mailbox=INBOX：测试取件。
 - POST /api/mail-accounts/{account_id}/clear?mailbox=INBOX：清空该邮箱文件夹，危险操作。
 
@@ -233,6 +240,21 @@ const importExample = `POST /api/mail-accounts/import
   "text": "user1@outlook.com----password----client-id----refresh-token\\nuser2@outlook.com----password----client-id----refresh-token",
   "owner_type": "user"
 }`
+
+const reauthorizeExample = `POST /api/mail-accounts/{account_id}/reauthorize-url
+
+返回：
+{
+  "auth_url": "https://login.microsoftonline.com/...",
+  "expires_in": 600
+}
+
+浏览器打开 auth_url 完成 Microsoft 授权。
+Microsoft 会回调：
+GET /api/oauth/microsoft/callback?code=...&state=...
+
+成功后跳回：
+/mail-accounts?reauthorize=success&email=your-outlook@example.com`
 
 const clearExample = `POST /api/process-mailbox
 

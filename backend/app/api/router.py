@@ -1,10 +1,20 @@
 from fastapi import APIRouter
 
-from backend.app.api.routes import api_keys, dashboard, health, logs, mail, mail_accounts, users
+from backend.app.api.routes import (
+    api_keys,
+    dashboard,
+    health,
+    logs,
+    mail,
+    mail_accounts,
+    oauth,
+    users,
+)
 
 api_router = APIRouter(prefix="/api")
 api_router.include_router(health.router)
 api_router.include_router(mail.router)
+api_router.include_router(oauth.router)
 api_router.include_router(users.router)
 api_router.include_router(api_keys.router)
 api_router.include_router(mail_accounts.router)

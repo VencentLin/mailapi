@@ -52,7 +52,7 @@
       <el-table-column prop="last_protocol" label="协议" width="100" />
       <el-table-column prop="last_error_code" label="最近错误" min-width="150" />
       <el-table-column prop="remark" label="备注" min-width="150" show-overflow-tooltip />
-      <el-table-column label="操作" width="340" fixed="right">
+      <el-table-column label="操作" width="430" fixed="right">
         <template #default="{ row }">
           <el-button
             v-if="row.can_claim"
@@ -70,6 +70,15 @@
             @click="openCredentials(row)"
           >
             凭据
+          </el-button>
+          <el-button
+            v-if="canManage(row)"
+            text
+            type="warning"
+            :icon="Refresh"
+            @click="handleReauthorize(row)"
+          >
+            重新授权
           </el-button>
           <el-button text :icon="VideoPlay" @click="handleTest(row)">测试</el-button>
           <el-button
@@ -206,6 +215,7 @@ import {
 } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from 'element-plus'
 import { onMounted, reactive, ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 
 import { ApiError } from '@/api/http'
 import {
@@ -214,6 +224,7 @@ import {
   type MailAccountFilters,
   claimMailAccount,
   createMailAccount,
+  createMailAccountReauthorizeUrl,
   disableMailAccount,
   fetchMailAccountCredentials,
   fetchMailAccounts,
@@ -224,6 +235,8 @@ import {
 import { useAuthStore } from '@/stores/auth'
 
 const auth = useAuthStore()
+const route = useRoute()
+const router = useRouter()
 const accounts = ref<MailAccount[]>([])
 const loading = ref(false)
 const creating = ref(false)
@@ -312,6 +325,38 @@ function canManage(row: MailAccount) {
 
 function canEditCredentials(row: MailAccount) {
   return row.can_view_credentials || canManage(row)
+}
+
+function reauthorizeReasonLabel(reason: unknown) {
+  const key = typeof reason === 'string' ? reason : 'oauth_failed'
+  const labels: Record<string, string> = {
+    email_mismatch: '授权的 Microsoft 邮箱和当前托管邮箱不一致',
+    invalid_state: '授权状态已失效，请重新点击授权',
+    missing_code: 'Microsoft 没有返回授权码',
+    microsoft_denied: 'Microsoft 授权被取消',
+    not_found: '邮箱或用户不存在',
+    oauth_failed: 'Microsoft OAuth 换取凭据失败',
+    permission_denied: '没有权限更新这个邮箱',
+  }
+  return labels[key] || '重新授权失败'
+}
+
+function showReauthorizeResult() {
+  const status = route.query.reauthorize
+  if (status !== 'success' && status !== 'failed') return
+
+  const email = typeof route.query.email === 'string' ? route.query.email : ''
+  if (status === 'success') {
+    ElMessage.success(email ? `${email} 重新授权成功` : '重新授权成功')
+  } else {
+    ElMessage.error(reauthorizeReasonLabel(route.query.reason))
+  }
+
+  const query = { ...route.query }
+  delete query.reauthorize
+  delete query.email
+  delete query.reason
+  void router.replace({ path: route.path, query })
 }
 
 async function loadAccounts() {
@@ -407,6 +452,15 @@ async function saveCredentials() {
   }
 }
 
+async function handleReauthorize(row: MailAccount) {
+  try {
+    const resp = await createMailAccountReauthorizeUrl(row.id)
+    window.location.href = resp.auth_url
+  } catch (e) {
+    error.value = e instanceof ApiError ? e.message : '创建重新授权链接失败'
+  }
+}
+
 async function handleTest(row: MailAccount) {
   const resp = await testFetchMailAccount(row.id)
   ElMessage.success(`取件成功，协议 ${resp.protocol}，邮件 ${resp.message_count} 封`)
@@ -420,7 +474,10 @@ async function handleDisable(row: MailAccount) {
   await loadAccounts()
 }
 
-onMounted(loadAccounts)
+onMounted(() => {
+  showReauthorizeResult()
+  void loadAccounts()
+})
 </script>
 
 <style scoped>
