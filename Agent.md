@@ -55,8 +55,8 @@ Claude 负责：
 |---|---|---|---|
 | TASK-20260613-phase3a-token-crypto-test-foundation | DONE | Claude | `docs/agent/tasks/TASK-20260613-phase3a-token-crypto-test-foundation.md` |
 | TASK-20260613-phase3a-mail-account-ownership | DONE | Claude | `docs/agent/tasks/TASK-20260613-phase3a-mail-account-ownership.md` |
-| TASK-20260613-phase3a-outlook-oauth-fetchers | DONE | Claude | `docs/agent/tasks/TASK-20260613-phase3a-outlook-oauth-fetchers.md` |
-| TASK-20260613-phase3a-compatible-mail-api | DONE | Claude | `docs/agent/tasks/TASK-20260613-phase3a-compatible-mail-api.md` |
+| TASK-20260613-phase3a-outlook-oauth-fetchers | TODO | Claude | `docs/agent/tasks/TASK-20260613-phase3a-outlook-oauth-fetchers.md` |
+| TASK-20260613-phase3a-compatible-mail-api | TODO | Claude | `docs/agent/tasks/TASK-20260613-phase3a-compatible-mail-api.md` |
 | TASK-20260613-phase3a-real-outlook-verification | BLOCKED | Claude | `docs/agent/tasks/TASK-20260613-phase3a-real-outlook-verification.md` |
 
 ## 状态约定

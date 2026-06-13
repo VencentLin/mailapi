@@ -1,6 +1,6 @@
 # TASK-20260613-phase3a-outlook-oauth-fetchers
 
-Status: DONE
+Status: TODO
 Owner: Claude
 Created by: Codex
 Created at: 2026-06-13
@@ -74,3 +74,17 @@ Notes:
 - 当前仅实现 Graph API，IMAP 推迟到 Phase 3B
 - 所有外部 HTTP 调用通过 httpx.AsyncClient，超时 30s
 - 测试使用 unittest.mock 完全 mock 外部 HTTP 调用
+
+## Codex 审查记录
+
+Status: REOPENED
+Reason:
+- 本任务目标明确要求 Graph 优先、IMAP XOAUTH2 fallback 和统一编排服务。
+- 当前实现只有 `backend/app/services/mail_fetchers.py`，且文件头写明 `Graph API only. IMAP support is deferred to Phase 3B.`。
+- 当前测试没有覆盖 IMAP XOAUTH2 字符串、Graph 权限不足 fallback、Graph/IMAP 双失败结构化错误。
+
+Required next steps:
+- 不要重新实现已完成的 token 加密或邮箱归属任务。
+- 在当前代码基础上补齐本任务验收标准 3、4、5。
+- 按原计划新增或等价拆分 Microsoft OAuth、Graph、IMAP、统一 `mail_fetch` 服务；如果保留 `mail_fetchers.py` 文件名，也必须满足同等接口和测试覆盖。
+- 完成后重新运行 `pytest tests/backend/test_mail_fetchers.py -v`、`pytest tests/backend -v`、`ruff check backend tests/backend`。

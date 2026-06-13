@@ -1,6 +1,6 @@
 # TASK-20260613-phase3a-compatible-mail-api
 
-Status: DONE
+Status: TODO
 Owner: Claude
 Created by: Codex
 Created at: 2026-06-13
@@ -75,3 +75,18 @@ Verification:
 Notes:
 - API 兼容旧有调用方式：POST /api/mail/fetch { email, client_id?, refresh_token? }
 - get_optional_user 自己实现了解码逻辑（复制自 auth.py 的 get_current_user），避免循环依赖
+
+## Codex 审查记录
+
+Status: REOPENED
+Reason:
+- 本任务背景和验收标准要求保留原项目入口：`/api/mail_new`、`/api/mail_all`、`/api/process-mailbox`。
+- 当前应用实际只注册了 `POST /api/mail/fetch`。
+- 当前测试只覆盖 `/api/mail/fetch`，没有覆盖 GET/POST 兼容入口、`code: "200"` 响应 envelope、`trace_id`、`protocol`、`mail_account_status`、成功/失败 `mail_fetch_logs`。
+
+Required next steps:
+- 不要删除当前 `/api/mail/fetch`，可作为内部或新接口保留。
+- 必须新增旧接口兼容路由，并让测试直接覆盖 `/api/mail_new`、`/api/mail_all`、`/api/process-mailbox`。
+- 响应必须保留 `code: "200"`，并增加 `trace_id`、`protocol`、`mail_account_status`。
+- 成功和失败都要写入 `mail_fetch_logs`。
+- 完成后重新运行 `pytest tests/backend/test_mail_api.py -v`、`pytest tests/backend -v`、`ruff check backend tests/backend`。
