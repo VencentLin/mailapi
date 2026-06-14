@@ -24,7 +24,8 @@ RUN pip install --no-cache-dir .
 COPY docker/entrypoint.sh ./docker/entrypoint.sh
 COPY --from=frontend-build /app/frontend/dist ./frontend/dist
 
-RUN chmod +x ./docker/entrypoint.sh
+RUN sed -i 's/\r$//' ./docker/entrypoint.sh \
+    && chmod +x ./docker/entrypoint.sh
 
 EXPOSE 8000
 
