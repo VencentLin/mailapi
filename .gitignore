@@ -10,7 +10,7 @@ build/
 .env
 .env.*
 !.env.example
-logs/
+/logs/
 *.log
 
 # Build artifacts
