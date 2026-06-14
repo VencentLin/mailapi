@@ -7,6 +7,7 @@ from urllib.parse import parse_qs, quote, urlparse
 import pytest
 from httpx import AsyncClient
 from sqlalchemy import select
+from sqlalchemy.exc import NoResultFound
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.app.core.config import get_settings
@@ -291,6 +292,84 @@ async def test_user_can_disable_own_mail_account(
     refreshed = await test_session.get(MailAccount, account.id)
     assert refreshed is not None
     assert refreshed.status == MailAccountStatus.DISABLED
+
+
+@pytest.mark.asyncio
+async def test_user_can_permanently_delete_disabled_account_and_reimport(
+    client: AsyncClient,
+    test_session: AsyncSession,
+):
+    user_id, token = await _login_as(client, test_session, "mailpurger", UserRole.USER)
+    account = await _create_account(
+        test_session,
+        email="purge-me@example.com",
+        owner_type=MailAccountOwnerType.USER,
+        owner_user_id=user_id,
+    )
+    account.status = MailAccountStatus.DISABLED
+    test_session.add(
+        MailFetchLog(
+            trace_id="purge-trace",
+            user_id=user_id,
+            mail_account_id=account.id,
+            email=account.email,
+            mailbox="INBOX",
+            operation="test_fetch",
+            source_protocol="graph",
+            status="success",
+        )
+    )
+    test_session.add(
+        MailAccountClaim(
+            mail_account_id=account.id,
+            claimed_by_user_id=user_id,
+            previous_owner_type="public",
+        )
+    )
+    await test_session.commit()
+
+    delete_resp = await client.delete(
+        f"/api/mail-accounts/{account.id}/permanent",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert delete_resp.status_code == 204
+    assert await test_session.get(MailAccount, account.id) is None
+    fetch_log = (await test_session.execute(select(MailFetchLog))).scalar_one()
+    assert fetch_log.mail_account_id is None
+    with pytest.raises(NoResultFound):
+        (await test_session.execute(select(MailAccountClaim))).scalar_one()
+
+    import_resp = await client.post(
+        "/api/mail-accounts/import",
+        json={"text": "purge-me@example.com----pw----client-new----refresh-new"},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert import_resp.status_code == 200
+    assert import_resp.json()["created"] == 1
+
+
+@pytest.mark.asyncio
+async def test_regular_user_cannot_permanently_delete_other_account(
+    client: AsyncClient,
+    test_session: AsyncSession,
+):
+    owner_id, _ = await _login_as(client, test_session, "purgeowner", UserRole.USER)
+    _, other_token = await _login_as(client, test_session, "purgeother", UserRole.USER)
+    account = await _create_account(
+        test_session,
+        email="not-yours@example.com",
+        owner_type=MailAccountOwnerType.USER,
+        owner_user_id=owner_id,
+    )
+
+    resp = await client.delete(
+        f"/api/mail-accounts/{account.id}/permanent",
+        headers={"Authorization": f"Bearer {other_token}"},
+    )
+
+    assert resp.status_code == 403
+    assert await test_session.get(MailAccount, account.id) is not None
 
 
 @pytest.mark.asyncio

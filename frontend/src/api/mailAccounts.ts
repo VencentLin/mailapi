@@ -34,6 +34,14 @@ export interface MailAccountCreate {
   remark?: string | null
 }
 
+export interface MailAccountUpdate {
+  owner_type?: MailAccountOwnerType
+  owner_user_id?: number | null
+  status?: MailAccountStatus
+  default_proxy?: string | null
+  remark?: string | null
+}
+
 export interface MailAccountImportRequest {
   text: string
   owner_type?: MailAccountOwnerType
@@ -106,8 +114,16 @@ export function claimMailAccount(id: number) {
   return http.post<MailAccount>(`/api/mail-accounts/${id}/claim`)
 }
 
+export function updateMailAccount(id: number, payload: MailAccountUpdate) {
+  return http.patch<MailAccount>(`/api/mail-accounts/${id}`, payload)
+}
+
 export function disableMailAccount(id: number) {
   return http.delete<void>(`/api/mail-accounts/${id}`)
+}
+
+export function permanentlyDeleteMailAccount(id: number) {
+  return http.delete<void>(`/api/mail-accounts/${id}/permanent`)
 }
 
 export function fetchMailAccountCredentials(id: number) {

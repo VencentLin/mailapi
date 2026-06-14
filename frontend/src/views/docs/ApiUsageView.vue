@@ -166,8 +166,9 @@ POST /api/process-mailbox
 - GET /api/mail-accounts：查看邮箱列表，可筛选 owner_user_id、owner_type、email、status、limit。
 - POST /api/mail-accounts：新增托管邮箱。
 - GET /api/mail-accounts/{account_id}：查看单个邮箱。
-- PATCH /api/mail-accounts/{account_id}：修改归属、状态、备注等。
-- DELETE /api/mail-accounts/{account_id}：删除托管邮箱。
+- PATCH /api/mail-accounts/{account_id}：修改归属、状态、备注等；传 {"status":"active"} 可重新启用邮箱。
+- DELETE /api/mail-accounts/{account_id}：禁用托管邮箱，不释放邮箱地址。
+- DELETE /api/mail-accounts/{account_id}/permanent：彻底删除托管邮箱，释放邮箱地址，可重新导入；历史取件日志会保留。
 - POST /api/mail-accounts/{account_id}/claim：认领公共邮箱。
 - GET /api/mail-accounts/{account_id}/credentials：查看 client_id 和 refresh_token，通常仅管理员或有权限用户可用。
 - PATCH /api/mail-accounts/{account_id}/credentials：修改 client_id 或 refresh_token。

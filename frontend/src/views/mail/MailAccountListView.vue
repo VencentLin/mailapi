@@ -52,7 +52,7 @@
       <el-table-column prop="last_protocol" label="协议" width="100" />
       <el-table-column prop="last_error_code" label="最近错误" min-width="150" />
       <el-table-column prop="remark" label="备注" min-width="150" show-overflow-tooltip />
-      <el-table-column label="操作" width="430" fixed="right">
+      <el-table-column label="操作" width="520" fixed="right">
         <template #default="{ row }">
           <el-button
             v-if="row.can_claim"
@@ -89,6 +89,24 @@
             @click="handleDisable(row)"
           >
             禁用
+          </el-button>
+          <el-button
+            v-if="canManage(row) && row.status !== 'active'"
+            text
+            type="success"
+            :icon="Check"
+            @click="handleEnable(row)"
+          >
+            启用
+          </el-button>
+          <el-button
+            v-if="canManage(row) && row.status !== 'active'"
+            text
+            type="danger"
+            :icon="Delete"
+            @click="handlePermanentDelete(row)"
+          >
+            彻底删除
           </el-button>
         </template>
       </el-table-column>
@@ -229,7 +247,9 @@ import {
   fetchMailAccountCredentials,
   fetchMailAccounts,
   importMailAccounts,
+  permanentlyDeleteMailAccount,
   testFetchMailAccount,
+  updateMailAccount,
   updateMailAccountCredentials,
 } from '@/api/mailAccounts'
 import { useAuthStore } from '@/stores/auth'
@@ -471,6 +491,27 @@ async function handleDisable(row: MailAccount) {
   await ElMessageBox.confirm(`确认禁用 ${row.email}？`, '禁用邮箱', { type: 'warning' })
   await disableMailAccount(row.id)
   ElMessage.success('已禁用')
+  await loadAccounts()
+}
+
+async function handleEnable(row: MailAccount) {
+  await updateMailAccount(row.id, { status: 'active' })
+  ElMessage.success('已启用')
+  await loadAccounts()
+}
+
+async function handlePermanentDelete(row: MailAccount) {
+  await ElMessageBox.confirm(
+    `确认彻底删除 ${row.email}？删除后会释放邮箱地址，可以重新导入；历史取件日志会保留。`,
+    '彻底删除邮箱',
+    {
+      type: 'error',
+      confirmButtonText: '彻底删除',
+      cancelButtonText: '取消',
+    },
+  )
+  await permanentlyDeleteMailAccount(row.id)
+  ElMessage.success('已彻底删除')
   await loadAccounts()
 }
 

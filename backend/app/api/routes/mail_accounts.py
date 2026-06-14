@@ -7,7 +7,7 @@ from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from pydantic import EmailStr, TypeAdapter, ValidationError
-from sqlalchemy import or_, select
+from sqlalchemy import delete, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.app.api.routes.auth import get_current_user
@@ -15,7 +15,7 @@ from backend.app.core.config import get_settings
 from backend.app.core.crypto import TokenCipher
 from backend.app.db.session import get_db_session
 from backend.app.models.enums import MailAccountOwnerType, MailAccountStatus, UserRole
-from backend.app.models.logs import MailAccountClaim
+from backend.app.models.logs import MailAccountClaim, MailFetchLog
 from backend.app.models.mail_account import MailAccount
 from backend.app.models.user import User
 from backend.app.schemas.mail_accounts import (
@@ -390,6 +390,25 @@ async def delete_mail_account(
 ) -> None:
     account = await _get_manageable_account(session, account_id, current_user)
     account.status = MailAccountStatus.DISABLED
+    await session.commit()
+
+
+@router.delete("/{account_id}/permanent", status_code=status.HTTP_204_NO_CONTENT)
+async def permanently_delete_mail_account(
+    account_id: int,
+    session: AsyncSession = Depends(get_db_session),
+    current_user: User = Depends(get_current_user),
+) -> None:
+    account = await _get_manageable_account(session, account_id, current_user)
+    await session.execute(
+        update(MailFetchLog)
+        .where(MailFetchLog.mail_account_id == account.id)
+        .values(mail_account_id=None)
+    )
+    await session.execute(
+        delete(MailAccountClaim).where(MailAccountClaim.mail_account_id == account.id)
+    )
+    await session.delete(account)
     await session.commit()
 
 
