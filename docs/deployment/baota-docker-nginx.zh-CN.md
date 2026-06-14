@@ -14,7 +14,7 @@
 服务器项目目录里需要放 `.env`。关键配置如下：
 
 ```env
-DATABASE_URL=postgresql+asyncpg://mailapi:你的密码@sz.lwx000.cn:39642/mailapi
+DATABASE_URL=postgresql+asyncpg://mailapi:你的密码@DB_HOST:DB_PORT/mailapi
 REDIS_URL=redis://127.0.0.1:6379/0
 RUN_MIGRATIONS=true
 
