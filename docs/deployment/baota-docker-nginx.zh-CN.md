@@ -5,7 +5,7 @@
 - Docker 容器：运行 MailAPI 后端、前端静态页面、容器内 Redis。
 - 容器端口：`8000`。
 - 服务器绑定：`127.0.0.1:8000`，不直接暴露公网。
-- 宝塔 Nginx：对外绑定 `mail.lwx000.cn`，反向代理到 `http://127.0.0.1:8000`。
+- 宝塔 Nginx：对外绑定 `mail.example.com`，反向代理到 `http://127.0.0.1:8000`。
 
 这个项目已经把前后端打进同一个镜像。浏览器访问 `/` 时返回前端页面，访问 `/api/*` 和 `/auth/*` 时进入后端接口，所以宝塔里只需要配置一个反向代理。
 
@@ -20,7 +20,7 @@ RUN_MIGRATIONS=true
 
 MICROSOFT_OAUTH_CLIENT_ID=你的 Microsoft 应用 Client ID
 MICROSOFT_OAUTH_CLIENT_SECRET=
-MICROSOFT_OAUTH_REDIRECT_URI=https://mail.lwx000.cn/api/oauth/microsoft/callback
+MICROSOFT_OAUTH_REDIRECT_URI=https://mail.example.com/api/oauth/microsoft/callback
 MICROSOFT_OAUTH_SCOPES=offline_access User.Read Mail.Read
 MICROSOFT_OAUTH_TENANT=consumers
 MICROSOFT_OAUTH_PROMPT=select_account
@@ -57,7 +57,7 @@ curl http://127.0.0.1:8000/api/health/db
 
 宝塔面板操作：
 
-1. 网站 -> 添加站点，域名填 `mail.lwx000.cn`。
+1. 网站 -> 添加站点，域名填 `mail.example.com`。
 2. 给站点申请并启用 SSL。
 3. 进入站点设置 -> 反向代理。
 4. 添加反向代理：
@@ -71,13 +71,13 @@ curl http://127.0.0.1:8000/api/health/db
 ```nginx
 server {
     listen 80;
-    server_name mail.lwx000.cn;
+    server_name mail.example.com;
     return 301 https://$host$request_uri;
 }
 
 server {
     listen 443 ssl http2;
-    server_name mail.lwx000.cn;
+    server_name mail.example.com;
 
     # 宝塔通常会自动生成 ssl_certificate / ssl_certificate_key。
 
@@ -103,7 +103,7 @@ server {
 Microsoft Azure 应用注册中添加：
 
 ```text
-https://mail.lwx000.cn/api/oauth/microsoft/callback
+https://mail.example.com/api/oauth/microsoft/callback
 ```
 
 权限建议包含：
