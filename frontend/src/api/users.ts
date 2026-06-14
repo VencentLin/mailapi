@@ -16,6 +16,14 @@ export interface UserCreate {
   status?: 'active' | 'disabled'
 }
 
+export interface UserUpdate {
+  username?: string
+  email?: string
+  password?: string
+  role?: 'admin' | 'user'
+  status?: 'active' | 'disabled'
+}
+
 export function fetchUsers(
   offset = 0,
   limit = 20,
@@ -25,4 +33,8 @@ export function fetchUsers(
 
 export function createUser(payload: UserCreate): Promise<UserPublic> {
   return http.post<UserPublic>('/api/users', payload)
+}
+
+export function updateUser(userId: number, payload: UserUpdate): Promise<UserPublic> {
+  return http.patch<UserPublic>(`/api/users/${userId}`, payload)
 }

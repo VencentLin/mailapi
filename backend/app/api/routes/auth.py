@@ -6,12 +6,20 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.app.core.security import create_access_token, decode_access_token
 from backend.app.db.session import get_db_session
-from backend.app.models.enums import UserStatus
+from backend.app.models.enums import UserRole, UserStatus
 from backend.app.models.user import User
-from backend.app.schemas.auth import LoginRequest, TokenResponse, UserPublic
+from backend.app.schemas.auth import (
+    LoginRequest,
+    RegisterRequest,
+    TokenResponse,
+    UserPublic,
+)
 from backend.app.services.users import (
     authenticate_user,
+    create_user,
+    get_user_by_email,
     get_user_by_id,
+    get_user_by_username,
     touch_last_login,
 )
 
@@ -72,6 +80,36 @@ async def login(
     await touch_last_login(session, user)
     token = create_access_token(subject=str(user.id))
     return TokenResponse(access_token=token)
+
+
+@router.post(
+    "/register",
+    response_model=UserPublic,
+    status_code=status.HTTP_201_CREATED,
+)
+async def register(
+    payload: RegisterRequest,
+    session: AsyncSession = Depends(get_db_session),
+) -> UserPublic:
+    if await get_user_by_username(session, payload.username):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Username already exists",
+        )
+    if await get_user_by_email(session, payload.email):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Email already exists",
+        )
+    user = await create_user(
+        session,
+        username=payload.username,
+        email=str(payload.email),
+        password=payload.password,
+        role=UserRole.USER,
+        status=UserStatus.DISABLED,
+    )
+    return UserPublic.model_validate(user)
 
 
 @router.get("/me", response_model=UserPublic)

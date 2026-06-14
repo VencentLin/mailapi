@@ -107,6 +107,69 @@ async def test_login_rejects_unknown_user(client):
 
 
 @pytest.mark.asyncio
+async def test_register_creates_disabled_user_pending_admin_review(client, test_session):
+    resp = await client.post(
+        "/auth/register",
+        json={
+            "username": "pending",
+            "email": "pending@example.com",
+            "password": "secret123",
+        },
+    )
+
+    assert resp.status_code == 201
+    body = resp.json()
+    assert body["username"] == "pending"
+    assert body["email"] == "pending@example.com"
+    assert body["role"] == "user"
+    assert body["status"] == "disabled"
+
+    login_resp = await client.post(
+        "/auth/login",
+        json={"username": "pending", "password": "secret123"},
+    )
+    assert login_resp.status_code == 401
+
+    row = await test_session.execute(
+        text("SELECT * FROM users WHERE username = 'pending'")
+    )
+    user = row.mappings().one()
+    assert user["status"] == "disabled"
+
+
+@pytest.mark.asyncio
+async def test_register_rejects_duplicate_username_or_email(client, test_session):
+    await create_user(
+        test_session,
+        username="registered",
+        email="registered@example.com",
+        password="pw",
+        role=UserRole.USER,
+        status=UserStatus.DISABLED,
+    )
+
+    dup_username = await client.post(
+        "/auth/register",
+        json={
+            "username": "registered",
+            "email": "new-registered@example.com",
+            "password": "secret123",
+        },
+    )
+    assert dup_username.status_code == 409
+
+    dup_email = await client.post(
+        "/auth/register",
+        json={
+            "username": "newregistered",
+            "email": "registered@example.com",
+            "password": "secret123",
+        },
+    )
+    assert dup_email.status_code == 409
+
+
+@pytest.mark.asyncio
 async def test_me_returns_current_user_for_valid_token(client, test_session):
     await create_user(
         test_session,

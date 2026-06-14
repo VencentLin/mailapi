@@ -1,4 +1,4 @@
-from pydantic import BaseModel, ConfigDict, EmailStr
+from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
 from backend.app.models.enums import UserRole, UserStatus
 
@@ -6,6 +6,12 @@ from backend.app.models.enums import UserRole, UserStatus
 class LoginRequest(BaseModel):
     username: str
     password: str
+
+
+class RegisterRequest(BaseModel):
+    username: str = Field(min_length=2, max_length=64)
+    email: EmailStr
+    password: str = Field(min_length=6)
 
 
 class TokenResponse(BaseModel):

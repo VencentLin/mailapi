@@ -86,6 +86,31 @@ async def create_user(
     return user
 
 
+async def update_user(
+    session: AsyncSession,
+    user: User,
+    *,
+    username: str | None = None,
+    email: str | None = None,
+    password: str | None = None,
+    role: UserRole | None = None,
+    status: UserStatus | None = None,
+) -> User:
+    if username is not None:
+        user.username = username
+    if email is not None:
+        user.email = email
+    if password is not None:
+        user.password_hash = hash_password(password)
+    if role is not None:
+        user.role = role
+    if status is not None:
+        user.status = status
+    await session.commit()
+    await session.refresh(user)
+    return user
+
+
 async def ensure_admin_user(
     session: AsyncSession,
     *,

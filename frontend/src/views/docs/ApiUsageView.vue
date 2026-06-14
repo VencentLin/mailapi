@@ -103,13 +103,13 @@ const aiToolGuide = String.raw`# MailAPI 给 AI 自动化脚本的工具说明
 基础配置：
 - MAILAPI_BASE_URL：MailAPI 服务地址，例如 http://127.0.0.1:8000 或云端地址。
 - MAILAPI_API_KEY：在 MailAPI 前端的 API Key 页面创建，格式通常是 mailapi_xxx。
-- 所有接口路径都以 /api 开头。
+- 业务接口路径以 /api 开头；登录、注册和当前用户接口是 /auth/login、/auth/register、/auth/me。
 - 优先使用 POST JSON；兼容取件接口也支持 GET query。
 
 认证规则：
 - 自动化取件优先用请求头：Authorization: Bearer {MAILAPI_API_KEY}
 - 如果调用环境不能设置请求头，可在 JSON body 里传 user_token: "{MAILAPI_API_KEY}"。
-- 管理类接口使用网页登录 JWT：先 POST /api/auth/login 获取 access_token，再用 Authorization: Bearer {access_token}。
+- 管理类接口使用网页登录 JWT：先 POST /auth/login 获取 access_token，再用 Authorization: Bearer {access_token}。
 - 邮箱已托管时，取件请求只需要 email 和 mailbox。邮箱未托管时，需要额外传 client_id 和 refresh_token；如果传入 API Key/user_token，会自动托管到该用户，否则托管到公共账户。
 
 核心取件 API：
@@ -178,9 +178,10 @@ POST /api/process-mailbox
 - POST /api/mail-accounts/{account_id}/clear?mailbox=INBOX：清空该邮箱文件夹，危险操作。
 
 用户、API Key、日志和系统 API：
-- POST /api/auth/login：网页登录，body 为 username 和 password，返回 access_token。
-- GET /api/auth/me：查看当前 JWT 用户。
-- GET /api/users、POST /api/users：管理员查看/创建用户。
+- POST /auth/login：网页登录，body 为 username 和 password，返回 access_token。
+- POST /auth/register：用户自助注册，注册后状态为 disabled，需要管理员审核启用后才能登录。
+- GET /auth/me：查看当前 JWT 用户。
+- GET /api/users、POST /api/users、PATCH /api/users/{id}：管理员查看、创建、编辑、启用或停用用户。
 - GET /api/api-keys、POST /api/api-keys、PATCH /api/api-keys/{id}、DELETE /api/api-keys/{id}：管理 API Key。
 - GET /api/logs/mail-fetch：查看取件日志，可筛选 email、status、user_id、limit。
 - GET /api/logs/audit：查看审计日志，管理员接口。

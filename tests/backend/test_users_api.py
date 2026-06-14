@@ -187,3 +187,120 @@ async def test_regular_user_cannot_create_user(client, test_session):
         headers={"Authorization": f"Bearer {token}"},
     )
     assert resp.status_code == 403
+
+
+# ---------------------------------------------------------------------------
+# PATCH /api/users/{user_id}
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_admin_can_edit_user_and_activate_pending_registration(client, test_session):
+    admin_token = await login_as(client, test_session, "admin6", UserRole.ADMIN)
+    pending = await create_user(
+        test_session,
+        username="pending-edit",
+        email="pending-edit@example.com",
+        password="oldpass",
+        role=UserRole.USER,
+        status=UserStatus.DISABLED,
+    )
+
+    resp = await client.patch(
+        f"/api/users/{pending.id}",
+        json={
+            "username": "active-edit",
+            "email": "active-edit@example.com",
+            "role": "user",
+            "status": "active",
+            "password": "newpass123",
+        },
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["username"] == "active-edit"
+    assert body["email"] == "active-edit@example.com"
+    assert body["role"] == "user"
+    assert body["status"] == "active"
+
+    login_resp = await client.post(
+        "/auth/login",
+        json={"username": "active-edit", "password": "newpass123"},
+    )
+    assert login_resp.status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_admin_can_disable_user_account(client, test_session):
+    admin_token = await login_as(client, test_session, "admin7", UserRole.ADMIN)
+    target = await create_user(
+        test_session,
+        username="target-disable",
+        email="target-disable@example.com",
+        password="pw",
+        role=UserRole.USER,
+        status=UserStatus.ACTIVE,
+    )
+
+    resp = await client.patch(
+        f"/api/users/{target.id}",
+        json={"status": "disabled"},
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+
+    assert resp.status_code == 200
+    assert resp.json()["status"] == "disabled"
+
+    login_resp = await client.post(
+        "/auth/login",
+        json={"username": "target-disable", "password": "pw"},
+    )
+    assert login_resp.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_admin_cannot_disable_or_demote_self(client, test_session):
+    admin_token = await login_as(client, test_session, "admin8", UserRole.ADMIN)
+    users_resp = await client.get(
+        "/api/users",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    admin_id = next(
+        user["id"] for user in users_resp.json() if user["username"] == "admin8"
+    )
+
+    disable_resp = await client.patch(
+        f"/api/users/{admin_id}",
+        json={"status": "disabled"},
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert disable_resp.status_code == 400
+
+    demote_resp = await client.patch(
+        f"/api/users/{admin_id}",
+        json={"role": "user"},
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert demote_resp.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_regular_user_cannot_edit_users(client, test_session):
+    token = await login_as(client, test_session, "regular4", UserRole.USER)
+    target = await create_user(
+        test_session,
+        username="regular-target",
+        email="regular-target@example.com",
+        password="pw",
+        role=UserRole.USER,
+        status=UserStatus.ACTIVE,
+    )
+
+    resp = await client.patch(
+        f"/api/users/{target.id}",
+        json={"status": "disabled"},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert resp.status_code == 403
