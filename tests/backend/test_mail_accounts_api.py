@@ -152,6 +152,46 @@ async def test_regular_user_sees_own_and_public_mail_accounts_only(
 
 
 @pytest.mark.asyncio
+async def test_regular_user_can_filter_own_and_public_mail_accounts(
+    client: AsyncClient,
+    test_session: AsyncSession,
+):
+    owner_id, owner_token = await _login_as(client, test_session, "filterowner", UserRole.USER)
+    other_id, _ = await _login_as(client, test_session, "filterhidden", UserRole.USER)
+    await _create_account(
+        test_session,
+        email="filter-own@example.com",
+        owner_type=MailAccountOwnerType.USER,
+        owner_user_id=owner_id,
+    )
+    await _create_account(
+        test_session,
+        email="filter-other@example.com",
+        owner_type=MailAccountOwnerType.USER,
+        owner_user_id=other_id,
+    )
+    await _create_account(
+        test_session,
+        email="filter-public@example.com",
+        owner_type=MailAccountOwnerType.PUBLIC,
+    )
+
+    own_resp = await client.get(
+        f"/api/mail-accounts?owner_type=user&owner_user_id={owner_id}",
+        headers={"Authorization": f"Bearer {owner_token}"},
+    )
+    assert own_resp.status_code == 200
+    assert [item["email"] for item in own_resp.json()] == ["filter-own@example.com"]
+
+    public_resp = await client.get(
+        "/api/mail-accounts?owner_type=public",
+        headers={"Authorization": f"Bearer {owner_token}"},
+    )
+    assert public_resp.status_code == 200
+    assert [item["email"] for item in public_resp.json()] == ["filter-public@example.com"]
+
+
+@pytest.mark.asyncio
 async def test_user_can_create_owned_mail_account_without_leaking_refresh_token(
     client: AsyncClient,
     test_session: AsyncSession,

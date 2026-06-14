@@ -4,8 +4,8 @@
       <h2>邮箱管理</h2>
       <div class="header-actions">
         <el-button :icon="Refresh" :loading="loading" @click="loadAccounts">刷新</el-button>
-        <el-button :icon="Upload" @click="showImportDialog = true">批量导入</el-button>
-        <el-button type="primary" :icon="Plus" @click="showCreateDialog = true">
+        <el-button :icon="Upload" @click="openImportDialog">批量导入</el-button>
+        <el-button type="primary" :icon="Plus" @click="openCreateDialog">
           托管邮箱
         </el-button>
       </div>
@@ -18,6 +18,12 @@
       <el-form-item v-if="auth.isAdmin" label="归属类型">
         <el-select v-model="filters.owner_type" clearable placeholder="全部" style="width: 130px">
           <el-option label="用户" value="user" />
+          <el-option label="公共池" value="public" />
+        </el-select>
+      </el-form-item>
+      <el-form-item v-if="!auth.isAdmin" label="归属">
+        <el-select v-model="filters.owner_type" style="width: 130px">
+          <el-option label="我的邮箱" value="user" />
           <el-option label="公共池" value="public" />
         </el-select>
       </el-form-item>
@@ -144,8 +150,21 @@
             <el-radio-button label="public">公共池</el-radio-button>
           </el-radio-group>
         </el-form-item>
-        <el-form-item v-if="auth.isAdmin && createForm.owner_type === 'user'" label="用户 ID">
-          <el-input-number v-model="createForm.owner_user_id" :min="1" />
+        <el-form-item v-if="auth.isAdmin && createForm.owner_type === 'user'" label="用户">
+          <el-select
+            v-model="createForm.owner_user_id"
+            :loading="usersLoading"
+            filterable
+            placeholder="当前账户"
+            style="width: 260px"
+          >
+            <el-option
+              v-for="user in users"
+              :key="user.id"
+              :label="userLabel(user)"
+              :value="user.id"
+            />
+          </el-select>
         </el-form-item>
         <el-form-item label="备注">
           <el-input v-model="createForm.remark" />
@@ -173,8 +192,21 @@
             <el-radio-button label="public">公共池</el-radio-button>
           </el-radio-group>
         </el-form-item>
-        <el-form-item v-if="auth.isAdmin && importForm.owner_type === 'user'" label="用户 ID">
-          <el-input-number v-model="importForm.owner_user_id" :min="1" />
+        <el-form-item v-if="auth.isAdmin && importForm.owner_type === 'user'" label="用户">
+          <el-select
+            v-model="importForm.owner_user_id"
+            :loading="usersLoading"
+            filterable
+            placeholder="当前账户"
+            style="width: 260px"
+          >
+            <el-option
+              v-for="user in users"
+              :key="user.id"
+              :label="userLabel(user)"
+              :value="user.id"
+            />
+          </el-select>
         </el-form-item>
         <el-form-item label="备注">
           <el-input v-model="importForm.remark" />
@@ -437,9 +469,32 @@ function loadAccountsDebounced() {
 }
 
 function initializeDefaultFilters() {
-  if (auth.isAdmin && auth.userId > 0) {
+  if (auth.userId > 0) {
+    filters.owner_type = 'user'
     filters.owner_user_id = auth.userId
+    createForm.owner_user_id = auth.userId
+    importForm.owner_user_id = auth.userId
   }
+}
+
+function ensureCurrentUserOwnerDefaults() {
+  if (auth.userId <= 0) return
+  if (createForm.owner_type === 'user' && !createForm.owner_user_id) {
+    createForm.owner_user_id = auth.userId
+  }
+  if (importForm.owner_type === 'user' && !importForm.owner_user_id) {
+    importForm.owner_user_id = auth.userId
+  }
+}
+
+function openCreateDialog() {
+  ensureCurrentUserOwnerDefaults()
+  showCreateDialog.value = true
+}
+
+function openImportDialog() {
+  ensureCurrentUserOwnerDefaults()
+  showImportDialog.value = true
 }
 
 async function handleCreate() {
@@ -579,6 +634,10 @@ watch(
   ([, ownerType]) => {
     if (ownerType === 'public' && filters.owner_user_id) {
       filters.owner_user_id = 0
+      return
+    }
+    if (!auth.isAdmin && ownerType === 'user' && filters.owner_user_id !== auth.userId) {
+      filters.owner_user_id = auth.userId
       return
     }
     loadAccountsDebounced()
