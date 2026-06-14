@@ -15,10 +15,28 @@
       <el-form-item label="邮箱">
         <el-input v-model="filters.email" clearable placeholder="email@example.com" />
       </el-form-item>
-      <el-form-item v-if="auth.isAdmin" label="归属">
+      <el-form-item v-if="auth.isAdmin" label="归属类型">
         <el-select v-model="filters.owner_type" clearable placeholder="全部" style="width: 130px">
           <el-option label="用户" value="user" />
           <el-option label="公共池" value="public" />
+        </el-select>
+      </el-form-item>
+      <el-form-item v-if="auth.isAdmin" label="用户">
+        <el-select
+          v-model="filters.owner_user_id"
+          :disabled="filters.owner_type === 'public'"
+          :loading="usersLoading"
+          filterable
+          placeholder="全部用户"
+          style="width: 180px"
+        >
+          <el-option label="全部用户" :value="0" />
+          <el-option
+            v-for="user in users"
+            :key="user.id"
+            :label="userLabel(user)"
+            :value="user.id"
+          />
         </el-select>
       </el-form-item>
       <el-form-item label="状态">
@@ -27,9 +45,6 @@
           <el-option label="已禁用" value="disabled" />
           <el-option label="无效" value="invalid" />
         </el-select>
-      </el-form-item>
-      <el-form-item>
-        <el-button type="primary" :icon="Search" @click="loadAccounts">筛选</el-button>
       </el-form-item>
     </el-form>
 
@@ -227,12 +242,11 @@ import {
   Key,
   Plus,
   Refresh,
-  Search,
   Upload,
   VideoPlay,
 } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from 'element-plus'
-import { onMounted, reactive, ref } from 'vue'
+import { onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import { ApiError } from '@/api/http'
@@ -252,13 +266,16 @@ import {
   updateMailAccount,
   updateMailAccountCredentials,
 } from '@/api/mailAccounts'
+import { type UserPublic, fetchUsers } from '@/api/users'
 import { useAuthStore } from '@/stores/auth'
 
 const auth = useAuthStore()
 const route = useRoute()
 const router = useRouter()
 const accounts = ref<MailAccount[]>([])
+const users = ref<UserPublic[]>([])
 const loading = ref(false)
+const usersLoading = ref(false)
 const creating = ref(false)
 const importing = ref(false)
 const savingCredentials = ref(false)
@@ -271,6 +288,7 @@ const createFormRef = ref<FormInstance>()
 const filters = reactive<MailAccountFilters>({
   email: '',
   owner_type: '',
+  owner_user_id: null,
   status: '',
 })
 
@@ -307,10 +325,17 @@ const createRules: FormRules = {
   refresh_token: [{ required: true, message: '请输入 Refresh Token', trigger: 'blur' }],
 }
 
+let autoLoadTimer: ReturnType<typeof window.setTimeout> | null = null
+let suppressAutoLoad = true
+
 function ownerLabel(row: MailAccount) {
   if (row.owner_type === 'public') return '公共池'
   if (row.owner_user_id === auth.userId) return '我的'
   return `用户 ${row.owner_user_id}`
+}
+
+function userLabel(user: UserPublic) {
+  return `${user.username} (${user.email})`
 }
 
 function statusLabel(status: MailAccount['status']) {
@@ -388,6 +413,32 @@ async function loadAccounts() {
     error.value = e instanceof ApiError ? e.message : '加载邮箱失败'
   } finally {
     loading.value = false
+  }
+}
+
+async function loadUsers() {
+  if (!auth.isAdmin) return
+  usersLoading.value = true
+  try {
+    users.value = await fetchUsers(0, 100)
+  } catch (e) {
+    error.value = e instanceof ApiError ? e.message : '加载用户列表失败'
+  } finally {
+    usersLoading.value = false
+  }
+}
+
+function loadAccountsDebounced() {
+  if (suppressAutoLoad) return
+  if (autoLoadTimer) window.clearTimeout(autoLoadTimer)
+  autoLoadTimer = window.setTimeout(() => {
+    void loadAccounts()
+  }, 300)
+}
+
+function initializeDefaultFilters() {
+  if (auth.isAdmin && auth.userId > 0) {
+    filters.owner_user_id = auth.userId
   }
 }
 
@@ -517,8 +568,22 @@ async function handlePermanentDelete(row: MailAccount) {
 
 onMounted(() => {
   showReauthorizeResult()
+  initializeDefaultFilters()
+  void loadUsers()
   void loadAccounts()
+  suppressAutoLoad = false
 })
+
+watch(
+  () => [filters.email, filters.owner_type, filters.owner_user_id, filters.status],
+  ([, ownerType]) => {
+    if (ownerType === 'public' && filters.owner_user_id) {
+      filters.owner_user_id = 0
+      return
+    }
+    loadAccountsDebounced()
+  },
+)
 </script>
 
 <style scoped>

@@ -92,7 +92,9 @@ function query(filters: MailAccountFilters = {}) {
   const params = new URLSearchParams()
   if (filters.email) params.set('email', filters.email)
   if (filters.owner_type) params.set('owner_type', filters.owner_type)
-  if (filters.owner_user_id) params.set('owner_user_id', String(filters.owner_user_id))
+  if (filters.owner_user_id && filters.owner_user_id > 0) {
+    params.set('owner_user_id', String(filters.owner_user_id))
+  }
   if (filters.status) params.set('status', filters.status)
   const qs = params.toString()
   return qs ? `?${qs}` : ''
