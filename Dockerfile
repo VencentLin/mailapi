@@ -17,10 +17,10 @@ RUN apt-get update \
 WORKDIR /app
 
 COPY pyproject.toml ./
-RUN pip install --no-cache-dir ".[dev]"
-
 COPY backend ./backend
 COPY alembic.ini ./alembic.ini
+RUN pip install --no-cache-dir .
+
 COPY docker/entrypoint.sh ./docker/entrypoint.sh
 COPY --from=frontend-build /app/frontend/dist ./frontend/dist
 

@@ -20,6 +20,14 @@ dependencies = [
   "uvicorn[standard]>=0.34.0",
 ]
 
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["backend*"]
+exclude = ["frontend*", "docker*", "docs*", "tests*"]
+
 [project.optional-dependencies]
 dev = [
   "aiosqlite>=0.20.0",
