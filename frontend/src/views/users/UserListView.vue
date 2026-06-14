@@ -31,7 +31,7 @@
           </el-tag>
         </template>
       </el-table-column>
-      <el-table-column label="操作" width="190" fixed="right">
+      <el-table-column label="操作" width="250" fixed="right">
         <template #default="{ row }">
           <div class="table-actions">
             <el-button size="small" @click="openEditDialog(row)">编辑用户</el-button>
@@ -43,6 +43,15 @@
               @click="handleToggleStatus(row)"
             >
               {{ row.status === 'active' ? '停用' : '启用' }}
+            </el-button>
+            <el-button
+              size="small"
+              type="danger"
+              :disabled="row.id === auth.userId"
+              :loading="deletingUserId === row.id"
+              @click="handleDeleteUser(row)"
+            >
+              删除
             </el-button>
           </div>
         </template>
@@ -142,6 +151,7 @@ import {
   type UserPublic,
   type UserUpdate,
   createUser,
+  deleteUser,
   fetchUsers,
   updateUser,
 } from '@/api/users'
@@ -157,6 +167,7 @@ const error = ref('')
 const creating = ref(false)
 const updating = ref(false)
 const togglingUserId = ref<number | null>(null)
+const deletingUserId = ref<number | null>(null)
 const showCreateDialog = ref(false)
 const showEditDialog = ref(false)
 const createFormRef = ref<FormInstance>()
@@ -343,6 +354,35 @@ async function handleToggleStatus(user: UserPublic) {
     }
   } finally {
     togglingUserId.value = null
+  }
+}
+
+async function handleDeleteUser(user: UserPublic) {
+  if (user.id === auth.userId) {
+    return
+  }
+  const confirmed = await ElMessageBox.confirm(
+    `确认删除用户 ${user.username}？该用户的 API Key 会被删除，托管邮箱会转为公共归属。`,
+    '删除用户',
+    { type: 'warning', confirmButtonText: '删除', cancelButtonText: '取消' },
+  )
+    .then(() => true)
+    .catch(() => false)
+  if (!confirmed) return
+
+  deletingUserId.value = user.id
+  try {
+    await deleteUser(user.id)
+    ElMessage.success('用户已删除')
+    await loadUsers()
+  } catch (e) {
+    if (e instanceof ApiError) {
+      error.value = e.message
+    } else {
+      error.value = '删除用户失败'
+    }
+  } finally {
+    deletingUserId.value = null
   }
 }
 

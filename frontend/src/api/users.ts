@@ -38,3 +38,7 @@ export function createUser(payload: UserCreate): Promise<UserPublic> {
 export function updateUser(userId: number, payload: UserUpdate): Promise<UserPublic> {
   return http.patch<UserPublic>(`/api/users/${userId}`, payload)
 }
+
+export function deleteUser(userId: number): Promise<void> {
+  return http.delete<void>(`/api/users/${userId}`)
+}

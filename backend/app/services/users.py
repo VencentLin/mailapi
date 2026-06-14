@@ -2,11 +2,14 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.app.core.security import hash_password, verify_password
-from backend.app.models.enums import UserRole, UserStatus
+from backend.app.models.api_key import ApiKey
+from backend.app.models.enums import MailAccountOwnerType, UserRole, UserStatus
+from backend.app.models.logs import AuditLog, MailAccountClaim, MailFetchLog
+from backend.app.models.mail_account import MailAccount
 from backend.app.models.user import User
 
 
@@ -109,6 +112,48 @@ async def update_user(
     await session.commit()
     await session.refresh(user)
     return user
+
+
+async def delete_user(session: AsyncSession, user: User) -> None:
+    """Delete a user while preserving operational history.
+
+    API keys are removed because they cannot exist without an owner. Mailboxes
+    become public so existing Outlook credentials remain usable. Historical logs
+    keep their rows, but user/API-key references are cleared to satisfy foreign
+    keys after the user and keys are deleted.
+    """
+    user_api_key_ids = select(ApiKey.id).where(ApiKey.user_id == user.id)
+    await session.execute(
+        update(MailFetchLog)
+        .where(MailFetchLog.api_key_id.in_(user_api_key_ids))
+        .values(api_key_id=None)
+    )
+    await session.execute(
+        update(MailFetchLog)
+        .where(MailFetchLog.user_id == user.id)
+        .values(user_id=None)
+    )
+    await session.execute(
+        update(AuditLog)
+        .where(AuditLog.actor_user_id == user.id)
+        .values(actor_user_id=None)
+    )
+    await session.execute(
+        delete(MailAccountClaim).where(MailAccountClaim.claimed_by_user_id == user.id)
+    )
+    await session.execute(
+        update(MailAccount)
+        .where(MailAccount.owner_user_id == user.id)
+        .values(owner_type=MailAccountOwnerType.PUBLIC, owner_user_id=None)
+    )
+    await session.execute(
+        update(MailAccount)
+        .where(MailAccount.created_by_user_id == user.id)
+        .values(created_by_user_id=None)
+    )
+    await session.execute(delete(ApiKey).where(ApiKey.user_id == user.id))
+    await session.delete(user)
+    await session.commit()
 
 
 async def ensure_admin_user(

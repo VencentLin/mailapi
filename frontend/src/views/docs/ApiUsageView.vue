@@ -61,7 +61,7 @@
 <script setup lang="ts">
 import { DocumentCopy } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
-import { defineComponent, h, ref } from 'vue'
+import { computed, defineComponent, h, ref } from 'vue'
 
 const activePanels = ref(['auth', 'mail-new', 'mail-all', 'verification'])
 
@@ -95,13 +95,16 @@ const CodeBlock = defineComponent({
   },
 })
 
-const aiToolGuide = String.raw`# MailAPI 给 AI 自动化脚本的工具说明
+const serviceBaseUrl = computed(() => window.location.origin)
+
+const aiToolGuide = computed(() => String.raw`# MailAPI 给 AI 自动化脚本的工具说明
 
 你的任务：
 当自动化流程需要读取 Outlook 邮件、查看全部邮件、提取邮箱验证码、托管邮箱或清空邮箱时，调用 MailAPI。不要猜接口，不要直接登录邮箱网页，不要在日志里打印 API Key、Authorization、refresh_token 或密码。
 
 基础配置：
-- MAILAPI_BASE_URL：MailAPI 服务地址，例如 http://127.0.0.1:8000 或云端地址。
+- MAILAPI_BASE_URL：${serviceBaseUrl.value}
+- 上面的服务地址由当前页面访问域名自动生成；部署到服务器后会自动变成服务器域名，例如 https://mail.lwx000.cn。
 - MAILAPI_API_KEY：在 MailAPI 前端的 API Key 页面创建，格式通常是 mailapi_xxx。
 - 业务接口路径以 /api 开头；登录、注册和当前用户接口是 /auth/login、/auth/register、/auth/me。
 - 优先使用 POST JSON；兼容取件接口也支持 GET query。
@@ -181,7 +184,7 @@ POST /api/process-mailbox
 - POST /auth/login：网页登录，body 为 username 和 password，返回 access_token。
 - POST /auth/register：用户自助注册，注册后状态为 disabled，需要管理员审核启用后才能登录。
 - GET /auth/me：查看当前 JWT 用户。
-- GET /api/users、POST /api/users、PATCH /api/users/{id}：管理员查看、创建、编辑、启用或停用用户。
+- GET /api/users、POST /api/users、PATCH /api/users/{id}、DELETE /api/users/{id}：管理员查看、创建、编辑、启用、停用或删除用户。删除用户会移除该用户 API Key，用户托管邮箱会转为公共归属。
 - GET /api/api-keys、POST /api/api-keys、PATCH /api/api-keys/{id}、DELETE /api/api-keys/{id}：管理 API Key。
 - GET /api/logs/mail-fetch：查看取件日志，可筛选 email、status、user_id、limit。
 - GET /api/logs/audit：查看审计日志，管理员接口。
@@ -191,17 +194,17 @@ POST /api/process-mailbox
 自动化脚本建议：
 - 封装一个 get_email_code(email, sender=None, subject_keyword=None, body_keyword=None) 函数，内部调用 /api/verification-code 并按 404 轮询。
 - 只把 verification_code 填入网页验证码输入框，不要把完整邮件正文、refresh_token 或 API Key 输出给用户界面。
-- 优先使用已经托管的邮箱；只有用户明确提供 client_id 和 refresh_token 时才在请求中传临时凭据。`
+- 优先使用已经托管的邮箱；只有用户明确提供 client_id 和 refresh_token 时才在请求中传临时凭据。`)
 
-const authExample = `Invoke-RestMethod \`
+const authExample = computed(() => `Invoke-RestMethod \`
   -Method Post \`
-  -Uri "http://127.0.0.1:8000/api/mail_new" \`
+  -Uri "${serviceBaseUrl.value}/api/mail_new" \`
   -Headers @{ Authorization = "Bearer mailapi_xxx" } \`
   -ContentType "application/json" \`
   -Body (@{
     email = "your-outlook@example.com"
     mailbox = "INBOX"
-  } | ConvertTo-Json)`
+  } | ConvertTo-Json)`)
 
 const userTokenExample = `{
   "email": "your-outlook@example.com",
